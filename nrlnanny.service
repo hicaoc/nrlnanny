@@ -1,0 +1,15 @@
+[Unit]
+Description=nrlnanny
+Documentation=https://bg6fcs.nrllink.net
+
+
+[Service]
+WorkingDirectory=/nrlnanny
+ExecStart=/nrlnanny/nrlnanny
+Restart=always
+RestartSec=5s
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+
