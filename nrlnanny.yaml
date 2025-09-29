@@ -1,0 +1,8 @@
+System:
+    Server: "js.nrlptt.com"
+    Port: "60050"
+    Callsign: "BH4RPN"
+    SSID: 250
+    AudioFile: "./test.wav"
+    RecoderFilePath: "./recoder"
+    CronString: "* * * * *"
