@@ -34,10 +34,10 @@ func readWAV() {
 	}
 
 	// buf 包含 PCM 数据
-	fmt.Printf("Channels: %d\n", wavbuf.Format.NumChannels)
-	fmt.Printf("Sample Rate: %d\n", decoder.SampleRate)
-	fmt.Printf("Bit Depth: %d\n", decoder.BitDepth)
-	fmt.Printf("Number of samples: %d\n", wavbuf.NumFrames())
+	log.Printf("Channels: %d\n", wavbuf.Format.NumChannels)
+	log.Printf("Sample Rate: %d\n", decoder.SampleRate)
+	log.Printf("Bit Depth: %d\n", decoder.BitDepth)
+	log.Printf("Number of samples: %d\n", wavbuf.NumFrames())
 
 	if wavbuf.Format.NumChannels != 1 {
 		fmt.Println("only mono WAV files are supported")
@@ -89,7 +89,7 @@ func (o sendwav) Run() {
 
 	cpuid := calculateCpuId(fmt.Sprintf("%s-250", conf.System.Callsign))
 
-	fmt.Println("信标开始发送...")
+	fmt.Print("信标开始发送.")
 
 	for i := 0; i < len(g711buf); i += 500 {
 
@@ -100,11 +100,13 @@ func (o sendwav) Run() {
 		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, g711buf[i:i+500])
 		dev.udpSocket.Write(packet)
 
-		//fmt.Printf("Sample send ... %d \n", i) // At(sampleIdx, channel)
+		//log.Printf("Sample send ... %d \n", i) // At(sampleIdx, channel)
 
-		time.Sleep(time.Microsecond * 7)
+		time.Sleep(time.Microsecond * 62500)
+		fmt.Print(".")
+
 	}
 
-	fmt.Println("信标发送完成")
+	fmt.Println("\n信标发送完成")
 
 }

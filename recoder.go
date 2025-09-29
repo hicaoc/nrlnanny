@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -89,7 +90,7 @@ func (r *Recorder) ProcessPCMData(data []byte) {
 		r.recordStartTime = time.Now()
 		r.isRecording = true
 		r.currentBuffer.Reset() // 清空缓冲区，准备开始新录音
-		fmt.Printf("[%s] 开始记录...\n", r.speakerCallsign)
+		log.Printf("[%s] 开始记录...\n", r.speakerCallsign)
 	}
 
 	if r.isRecording {
@@ -116,7 +117,7 @@ func (r *Recorder) checkAndSaveRecord() {
 	if time.Since(r.lastDataTime) > minRecordDuration {
 		r.saveCurrentRecord(currentDuration)
 		r.isRecording = false
-		fmt.Printf("[%s] 结束记录。\n", r.speakerCallsign)
+		log.Printf("[%s] 结束记录。\n", r.speakerCallsign)
 	}
 }
 
@@ -128,7 +129,7 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 
 	// 确保录音时长大于最小记录时长
 	if duration < minRecordDuration {
-		fmt.Printf("[%s] 录音时长不足 %.2f 秒，不保存。\n", r.speakerCallsign, minRecordDuration.Seconds())
+		log.Printf("[%s] 录音时长不足 %.2f 秒，不保存。\n", r.speakerCallsign, minRecordDuration.Seconds())
 		return
 	}
 
@@ -136,7 +137,7 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	today := time.Now().Format("2006-01-02")
 	dayOutputDir := filepath.Join(r.outputDir, today)
 	if err := os.MkdirAll(dayOutputDir, 0755); err != nil {
-		fmt.Printf("创建目录 %s 失败: %v\n", dayOutputDir, err)
+		log.Printf("创建目录 %s 失败: %v\n", dayOutputDir, err)
 		return
 	}
 
@@ -146,12 +147,12 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	filename := fmt.Sprintf("%s_%s_%ds.wav", r.speakerCallsign, startTimeStr, durationSeconds)
 	filePath := filepath.Join(dayOutputDir, filename)
 
-	fmt.Printf("[%s] 保存录音到: %s (时长:%d秒)\n", r.speakerCallsign, filePath, durationSeconds)
+	log.Printf("[%s] 保存录音到: %s (时长:%d秒)\n", r.speakerCallsign, filePath, durationSeconds)
 
 	// 创建WAV文件
 	file, err := os.Create(filePath)
 	if err != nil {
-		fmt.Printf("创建文件 %s 失败: %v\n", filePath, err)
+		log.Printf("创建文件 %s 失败: %v\n", filePath, err)
 		return
 	}
 	defer file.Close()
@@ -162,13 +163,13 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	// 创建并写入WAV头
 	wavHeader := createWAVHeader(pcmDataSize)
 	if err := binary.Write(file, binary.LittleEndian, wavHeader); err != nil {
-		fmt.Printf("写入WAV头失败: %v\n", err)
+		log.Printf("写入WAV头失败: %v\n", err)
 		return
 	}
 
 	// 写入PCM数据
 	if _, err := io.Copy(file, r.currentBuffer); err != nil {
-		fmt.Printf("写入PCM数据失败: %v\n", err)
+		log.Printf("写入PCM数据失败: %v\n", err)
 		return
 	}
 
@@ -186,7 +187,7 @@ func (r *Recorder) Stop() {
 	if r.isRecording {
 		r.saveCurrentRecord(time.Since(r.recordStartTime))
 		r.isRecording = false
-		fmt.Printf("[%s] 录音停止。\n", r.speakerCallsign)
+		//log.Printf("[%s] 录音停止。\n", r.speakerCallsign)
 	}
 
 }
@@ -195,20 +196,20 @@ func StartRecoder() {
 	// 示例用法
 	baseOutputDir := conf.System.RecoderFilePath
 	if err := os.MkdirAll(baseOutputDir, 0755); err != nil {
-		fmt.Printf("创建基础输出目录 %s 失败: %v\n", baseOutputDir, err)
+		log.Printf("创建基础输出目录 %s 失败: %v\n", baseOutputDir, err)
 		return
 	}
 
 	// 添加调试日志
 	absPath, _ := filepath.Abs(baseOutputDir)
-	fmt.Printf("基础输出目录绝对路径: %s\n", absPath)
+	log.Printf("基础输出目录绝对路径: %s\n", absPath)
 
 	// 创建一个文件用于测试写入权限
 	testFile := filepath.Join(baseOutputDir, "test.txt")
-	fmt.Printf("创建测试文件: %s\n", testFile)
+	log.Printf("创建测试文件: %s\n", testFile)
 	f, err := os.Create(testFile)
 	if err != nil {
-		fmt.Printf("创建测试文件失败: %v\n", err)
+		log.Printf("创建测试文件失败: %v\n", err)
 	} else {
 		f.WriteString("测试文件写入成功\n")
 		f.Close()
@@ -218,65 +219,5 @@ func StartRecoder() {
 	// 添加更详细的日志输出已被移除，使用原有方式
 	// 修改录音器实例
 	// 添加更详细的日志输出已被移除，使用原有方式
-
-}
-
-func Test() {
-
-	// 模拟实时PCM数据输入
-
-	// 模拟一段短数据 (小于2秒，不应该被保存)
-	fmt.Println("模拟短数据输入 (1秒)...")
-	for i := range sampleRate * 1 { // 1秒数据
-		recorder.ProcessPCMData([]byte{byte(i % 256)}) // 模拟8位PCM数据
-		//time.Sleep(1 * time.Millisecond)
-	}
-	time.Sleep(3 * time.Second) // 停顿，模拟间歇性
-
-	// 模拟一段长数据 (大于2秒，应该被保存)
-	fmt.Println("模拟长数据输入 (3秒)...")
-	for i := range sampleRate * 3 { // 3秒数据
-		recorder.ProcessPCMData([]byte{byte(i % 256)})
-		//time.Sleep(1 * time.Millisecond)
-	}
-	time.Sleep(3 * time.Second) // 停顿，模拟间歇性
-
-	// 模拟另一段长数据，并再次停顿，以触发新文件创建
-	fmt.Println("模拟第二段长数据输入 (2.5秒)...")
-	for i := range sampleRate*2 + sampleRate/2 { // 2.5秒数据
-		recorder.ProcessPCMData([]byte{byte(i % 256)})
-		//time.Sleep(1 * time.Millisecond)
-	}
-	time.Sleep(3 * time.Second) // 停顿，模拟间歇性
-
-	// 模拟短数据，但这次因为它前面有停顿，所以会触发一次保存（如果前面有足够长的数据）
-	fmt.Println("模拟短数据输入 (1秒) after a pause...")
-	for i := range sampleRate * 1 { // 1秒数据
-		recorder.ProcessPCMData([]byte{byte(i % 256)})
-		//time.Sleep(1 * time.Millisecond)
-	}
-	time.Sleep(3 * time.Second) // 停顿，确保所有数据都已处理
-
-	recorder.Stop() // 停止录音器，保存剩余的可能数据
-
-	// 保持主程序运行，直到所有模拟数据处理完毕
-
-	// 打印最终目录文件列表
-	fmt.Println("最终目录文件列表:")
-	files, _ := os.ReadDir(conf.System.RecoderFilePath)
-	for _, f := range files {
-		info, _ := f.Info()
-		fmt.Printf("- %s (%d bytes)\n", f.Name(), info.Size())
-
-		// 如果是目录，打印目录中的文件
-		if f.IsDir() {
-			fmt.Printf("  %s 子目录内容:\n", f.Name())
-			subFiles, _ := os.ReadDir(filepath.Join(conf.System.RecoderFilePath, f.Name()))
-			for _, sf := range subFiles {
-				subInfo, _ := sf.Info()
-				fmt.Printf("  - %s (%d bytes)\n", sf.Name(), subInfo.Size())
-			}
-		}
-	}
 
 }

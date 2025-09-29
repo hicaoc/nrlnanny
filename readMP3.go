@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/hajimehoshi/go-mp3"
@@ -24,9 +25,9 @@ func ReadMP3() {
 		panic(err)
 	}
 
-	fmt.Printf("Sample Rate: %d Hz\n", decoder.SampleRate())
+	log.Printf("Sample Rate: %d Hz\n", decoder.SampleRate())
 
-	fmt.Printf("Length (in samples): %d\n", decoder.Length())
+	log.Printf("Length (in samples): %d\n", decoder.Length())
 
 	// 准备缓冲区来存储 PCM 数据
 	const bufferSize = 4096
@@ -52,12 +53,12 @@ func ReadMP3() {
 		fmt.Println("Error converting bytes to int16:", err, len(allSamples))
 	}
 
-	fmt.Printf("总共解码了 %d 个 PCM 样本\n", len(allSamples))
+	log.Printf("总共解码了 %d 个 PCM 样本\n", len(allSamples))
 
 	// 示例：打印前 10 个样本
-	fmt.Printf("前 10 个 PCM 样本: ")
+	log.Printf("前 10 个 PCM 样本: ")
 	for i := 0; i < min(10, len(pcmSamples)); i++ {
-		fmt.Printf("%d ", allSamples[i])
+		log.Printf("%d ", allSamples[i])
 	}
 
 }

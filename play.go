@@ -8,63 +8,50 @@ import (
 	"time"
 
 	"github.com/ebitengine/oto/v3"
-	//"github.com/hajimehoshi/oto/v3"
 )
 
 var streamReader *PCMStreamReader
 
 func newplay() {
-
 	op := &oto.NewContextOptions{}
-
-	// Usually 44100 or 48000. Other values might cause distortions in Oto
 	op.SampleRate = 8000
-
-	// Number of channels (aka locations) to play sounds from. Either 1 or 2.
-	// 1 is mono sound, and 2 is stereo (most speakers are stereo).
 	op.ChannelCount = 1
-
-	// Format of the source. go-mp3's format is signed 16bit integers.
 	op.Format = oto.FormatSignedInt16LE
-	// 初始化 oto 音频上下文
+
 	otoCtx, ready, err := oto.NewContext(op)
 	if err != nil {
 		log.Fatal("创建录音失败:", err)
 	}
-	<-ready // 等待上下文就绪
+	<-ready
 
-	// 创建流式 Reader
 	streamReader = NewPCMStreamReader()
 
-	// 创建播放器（传入 Reader）
 	player := otoCtx.NewPlayer(streamReader)
 	defer player.Close()
 
-	// 启动播放
 	log.Println("开始录音和监听...")
 	player.Play()
 
 	for player.IsPlaying() {
-		//log.Println("等待数据...")
-		time.Sleep(time.Microsecond * 100)
+		time.Sleep(time.Millisecond * 100)
 	}
-
+	log.Println("监听完毕...")
 }
 
 // PCMStreamReader 实现 io.Reader，用于实时播放 []int16 流
 type PCMStreamReader struct {
-	mu     sync.Mutex
-	cond   *sync.Cond    // 用于等待新数据
-	chunks chan []byte   // 接收网络数据的 channel
-	buffer *bytes.Buffer // 当前待读取的字节缓冲
-	closed bool          // 标记流是否已关闭
+	mu            sync.Mutex
+	cond          *sync.Cond    // 用于等待新数据
+	buffer        *bytes.Buffer // 存储所有待播放的字节
+	closed        bool          // 标记流是否已关闭
+	maxBufferSize int           // 限制缓冲区的最大大小
 }
 
 // NewPCMStreamReader 创建一个新的流式 Reader
 func NewPCMStreamReader() *PCMStreamReader {
 	reader := &PCMStreamReader{
-		chunks: make(chan []byte, 2000), // 缓冲 channel，防止发送阻塞
-		buffer: bytes.NewBuffer(nil),
+		buffer:        bytes.NewBuffer(nil),
+		maxBufferSize: 8000 * 2 * 10, // 假设 8000 采样率，2 字节/采样，缓冲 5 秒的数据
 	}
 	reader.cond = sync.NewCond(&reader.mu)
 	return reader
@@ -79,14 +66,28 @@ func (r *PCMStreamReader) WriteChunk(chunk []byte) error {
 		return io.ErrClosedPipe
 	}
 
-	select {
-	case r.chunks <- chunk:
-		// 唤醒所有等待的 Read
-		r.cond.Broadcast()
-	default:
-		// channel 满了，丢弃旧数据或阻塞（可优化）
-		log.Println("缓冲区满，丢弃一帧")
+	// 检查缓冲区是否已达到最大容量
+	if r.buffer.Len()+len(chunk) > r.maxBufferSize {
+		// 缓冲区满，这里可以选择：
+		// 1. 丢弃当前 chunk (如果允许丢帧，且希望保持低延迟)
+		log.Printf("缓冲区满 (%.2fMB / %.2fMB)，丢弃一帧。当前缓冲区大小: %d\n",
+			float64(r.buffer.Len())/(1024*1024), float64(r.maxBufferSize)/(1024*1024), r.buffer.Len())
+		// return nil // 直接返回，丢弃当前帧
+
+		// 2. 阻塞直到有空间 (如果不能丢帧，且发送方可以阻塞)
+		// 等待 Read 消耗一些数据
+		for r.buffer.Len()+len(chunk) > r.maxBufferSize && !r.closed {
+			log.Println("缓冲区满，WriteChunk 阻塞等待 Read 消费...")
+			r.cond.Wait()
+		}
+		if r.closed { // 再次检查是否在等待期间关闭
+			return io.ErrClosedPipe
+		}
 	}
+
+	r.buffer.Write(chunk)
+	r.cond.Broadcast() // 唤醒所有等待的 Read
+
 	return nil
 }
 
@@ -96,8 +97,7 @@ func (r *PCMStreamReader) Close() {
 	defer r.mu.Unlock()
 	if !r.closed {
 		r.closed = true
-		close(r.chunks)
-		r.cond.Broadcast()
+		r.cond.Broadcast() // 唤醒所有等待的 Read
 	}
 }
 
@@ -107,37 +107,21 @@ func (r *PCMStreamReader) Read(p []byte) (n int, err error) {
 	defer r.mu.Unlock()
 
 	for {
-		// 1. 如果 buffer 中有数据，先返回
+		// 如果 buffer 中有数据，先返回
 		if r.buffer.Len() > 0 {
-			return r.buffer.Read(p)
+			n, _ := r.buffer.Read(p)
+			if n > 0 {
+				r.cond.Broadcast() // 读出数据后，通知 WriteChunk 可能有空间了
+			}
+			return n, nil
 		}
 
-		// 2. 如果流已关闭，且无数据，返回 EOF
-		if r.closed && len(r.chunks) == 0 {
+		// 如果流已关闭，且无数据，返回 EOF
+		if r.closed {
 			return 0, io.EOF
 		}
 
-		// 3. 尝试从 chunks 读取一个新块
-		select {
-		case chunk, ok := <-r.chunks:
-
-			if !ok {
-				if r.buffer.Len() == 0 {
-					return 0, io.EOF
-				}
-				continue // 还有数据在 buffer，继续读
-			}
-
-			r.buffer.Write(chunk)
-		default:
-			// 没有数据，阻塞等待
-			r.cond.Wait()
-			continue
-		}
-
-		// 4. 转换后，从 buffer 读取到 p
-		if r.buffer.Len() > 0 {
-			return r.buffer.Read(p)
-		}
+		// 没有数据，阻塞等待新数据
+		r.cond.Wait()
 	}
 }
