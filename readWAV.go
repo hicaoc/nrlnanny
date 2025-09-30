@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/go-audio/wav"
-	"github.com/robfig/cron/v3"
 )
 
 var g711buf []byte
@@ -55,58 +53,5 @@ func readWAV() {
 	}
 
 	g711buf = G711Encode(wavbuf.Data)
-
-	startcron()
-
-}
-
-func startcron() {
-
-	c := cron.New()
-
-	//AddFunc
-
-	//AddJob方法
-	id1, err := c.AddJob(conf.System.CronString, sendwav{})
-	if err != nil {
-		log.Println("add notifyspec err", err)
-	}
-
-	//启动计划任务
-	c.Start()
-
-	//关闭着计划任务, 但是不能关闭已经在执行中的任务.
-	//defer c.Stop()
-	log.Println("自动发送信标语音启动", id1)
-
-	//SELECT {}
-}
-
-type sendwav struct {
-}
-
-func (o sendwav) Run() {
-
-	cpuid := calculateCpuId(fmt.Sprintf("%s-250", conf.System.Callsign))
-
-	fmt.Print("信标开始发送.")
-
-	for i := 0; i < len(g711buf); i += 500 {
-
-		if i+500 > len(g711buf) {
-			break
-		}
-
-		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, g711buf[i:i+500])
-		dev.udpSocket.Write(packet)
-
-		//log.Printf("Sample send ... %d \n", i) // At(sampleIdx, channel)
-
-		time.Sleep(time.Microsecond * 62500)
-		fmt.Print(".")
-
-	}
-
-	fmt.Println("\n信标发送完成")
 
 }
