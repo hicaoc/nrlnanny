@@ -123,13 +123,10 @@ func (r *Recorder) checkAndSaveRecord() {
 
 // saveCurrentRecord 保存当前录音到文件
 func (r *Recorder) saveCurrentRecord(duration time.Duration) {
-	if r.currentBuffer.Len() == 0 {
-		return // 没有数据，无需保存
-	}
 
 	// 确保录音时长大于最小记录时长
-	if duration < minRecordDuration {
-		log.Printf("[%s] 录音时长不足 %.2f 秒，不保存。\n", r.speakerCallsign, minRecordDuration.Seconds())
+	if r.currentBuffer.Len() < 32000 || duration < minRecordDuration {
+		log.Printf("[%s] 录音时长不足 %.2f 秒，或者数据太少不保存。\n", r.speakerCallsign, minRecordDuration.Seconds())
 		return
 	}
 
@@ -142,7 +139,7 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	}
 
 	// 构造文件名
-	startTimeStr := r.recordStartTime.Format("150405") // HHMMSS
+	startTimeStr := r.recordStartTime.Format("2006-01-02_150405") // HHMMSS
 	durationSeconds := int(duration.Seconds())
 	filename := fmt.Sprintf("%s_%s_%ds.wav", r.speakerCallsign, startTimeStr, durationSeconds)
 	filePath := filepath.Join(dayOutputDir, filename)

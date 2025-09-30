@@ -25,6 +25,8 @@ ffmpeg -i test1.wav -ac 1 -ar 8000 test3.wav
 sudo apt install libasound2-dev
 ```
 
+find . -type f -size -47000c -delete
+
 ### 1.3 配置文件修改
 编辑配置文件 `nrlnanny.yaml`，根据需要修改以下参数：
 

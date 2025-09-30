@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net"
 	"time"
 )
@@ -29,9 +28,10 @@ func (d *deviceInfo) sendHeartbear() {
 	for {
 
 		//发送心跳包
+		//log.Println("send hb:", d.udpSocket)
 		_, err := d.udpSocket.Write(packet)
 		if err != nil {
-			log.Println("send hb err:", err)
+			//log.Println("send hb err:", err)
 			time.Sleep(time.Second * 5)
 		}
 		time.Sleep(time.Second * 2)
