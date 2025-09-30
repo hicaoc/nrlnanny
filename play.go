@@ -52,7 +52,7 @@ type PCMStreamReader struct {
 func NewPCMStreamReader() *PCMStreamReader {
 	reader := &PCMStreamReader{
 		buffer:        bytes.NewBuffer(nil),
-		maxBufferSize: 8000 * 2 * 120, // 假设 8000 采样率，2 字节/采样，缓冲 120 秒的数据
+		maxBufferSize: 8000 * 2 * 300, // 假设 8000 采样率，2 字节/采样，缓冲 300 秒的数据
 	}
 	reader.cond = sync.NewCond(&reader.mu)
 	return reader
