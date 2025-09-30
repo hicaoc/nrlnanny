@@ -21,7 +21,7 @@ hostlist='nrlptt.com bh4tdv.nrlptt.com ba1gm.nrlptt.com bd4vki.nrlptt.com  ah.nr
 
 #hostlist='bh4tdv.nrlptt.com'
 
-hostlist="js.nrlptt.com"
+hostlist="ptt.nrlptt.com js.nrlptt.com"
 
 time=`date "+%Y%m%d%H%M%S"`
 

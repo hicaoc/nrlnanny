@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -51,7 +52,7 @@ type PCMStreamReader struct {
 func NewPCMStreamReader() *PCMStreamReader {
 	reader := &PCMStreamReader{
 		buffer:        bytes.NewBuffer(nil),
-		maxBufferSize: 8000 * 2 * 10, // 假设 8000 采样率，2 字节/采样，缓冲 5 秒的数据
+		maxBufferSize: 8000 * 2 * 120, // 假设 8000 采样率，2 字节/采样，缓冲 120 秒的数据
 	}
 	reader.cond = sync.NewCond(&reader.mu)
 	return reader
@@ -70,19 +71,22 @@ func (r *PCMStreamReader) WriteChunk(chunk []byte) error {
 	if r.buffer.Len()+len(chunk) > r.maxBufferSize {
 		// 缓冲区满，这里可以选择：
 		// 1. 丢弃当前 chunk (如果允许丢帧，且希望保持低延迟)
-		log.Printf("缓冲区满 (%.2fMB / %.2fMB)，丢弃一帧。当前缓冲区大小: %d\n",
+		fmt.Println()
+		log.Printf("缓冲区满 (%.2fMB / %.2fMB)，清空缓存，缓冲区大小: %d\n",
 			float64(r.buffer.Len())/(1024*1024), float64(r.maxBufferSize)/(1024*1024), r.buffer.Len())
 		// return nil // 直接返回，丢弃当前帧
 
+		r.buffer.Reset()
+
 		// 2. 阻塞直到有空间 (如果不能丢帧，且发送方可以阻塞)
 		// 等待 Read 消耗一些数据
-		for r.buffer.Len()+len(chunk) > r.maxBufferSize && !r.closed {
-			log.Println("缓冲区满，WriteChunk 阻塞等待 Read 消费...")
-			r.cond.Wait()
-		}
-		if r.closed { // 再次检查是否在等待期间关闭
-			return io.ErrClosedPipe
-		}
+		// for r.buffer.Len()+len(chunk) > r.maxBufferSize && !r.closed {
+		// 	log.Println("缓冲区满，WriteChunk 阻塞等待 Read 消费...")
+		// 	r.cond.Wait()
+		// }
+		// if r.closed { // 再次检查是否在等待期间关闭
+		// 	return io.ErrClosedPipe
+		// }
 	}
 
 	r.buffer.Write(chunk)
