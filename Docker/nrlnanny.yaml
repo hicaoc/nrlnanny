@@ -1,0 +1,8 @@
+System:
+    Server: "nrlptt.com"
+    Port: "60050"
+    Callsign: "XX4XXX"
+    SSID: 250
+    AudioFile: ""
+    RecoderFilePath: "/nrlnanny/data/recoder"
+    CronString: "* * * * *"
