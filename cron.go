@@ -71,7 +71,7 @@ func (o sendvoice) Run() {
 		fmt.Print(".")
 
 	}
-	log.Println()
+	fmt.Println()
 	log.Println("信标发送完成")
 
 }
