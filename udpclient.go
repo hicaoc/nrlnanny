@@ -137,7 +137,7 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 
 	if nrl.CallSign != lastcallsign || nrl.SSID != lastssid || time.Since(lasttime) > time.Second*2 {
 		fmt.Println()
-		log.Printf("收到来自 %s-%d 新语音呼叫\n", nrl.CallSign, nrl.SSID)
+		log.Printf("[%s-%d] 新语音呼叫\n", nrl.CallSign, nrl.SSID)
 		recorder.Stop()
 		recorder = NewRecorder(fmt.Sprintf("%s-%d", nrl.CallSign, nrl.SSID))
 

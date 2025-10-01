@@ -15,7 +15,7 @@ type sendvoice struct {
 
 func startcron() {
 
-	if conf.System.AudioFile != "" && conf.System.CronString != "" {
+	if conf.System.AudioFile == "" || conf.System.CronString == "" {
 		log.Println("未启动自动发送信标语音功能，因为没有配置音频文件路径或者调度字符串没有配置")
 		return
 	}
@@ -71,7 +71,7 @@ func (o sendvoice) Run() {
 		fmt.Print(".")
 
 	}
-
-	log.Println("\n信标发送完成")
+	log.Println()
+	log.Println("信标发送完成")
 
 }
