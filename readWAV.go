@@ -4,13 +4,31 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/go-audio/wav"
 )
 
 var g711buf []byte
 
+var lastAudioFileModTime time.Time
+
 func readWAV() {
+
+	fileInfo, err := os.Stat(conf.System.AudioFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 获取修改时间
+	modTime := fileInfo.ModTime()
+
+	if modTime.Equal(lastAudioFileModTime) {
+		fmt.Println("文件 " + conf.System.AudioFile + " 未变化，无需重新加载,直接使用上次加载的文件")
+		return
+	}
+
+	lastAudioFileModTime = modTime
 
 	fmt.Println("Reading WAV file...")
 	file, err := os.Open(conf.System.AudioFile)
