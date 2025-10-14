@@ -8,15 +8,22 @@
         h1 { color: #333; }
         ul { list-style: none; padding: 0; }
         li {
-            margin: 0.5rem 0;
-            padding: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            margin: 10px 0;
+            padding: 8px;
+	    border-botton: 1px solid #eee;
             background-color: #f9f9f9;
-            cursor: pointer;
+	    overflow: visible !important;
+	    z-index: ;
         }
         li:hover { background-color: #eee; }
-        audio { width: 100%; margin-top: 0.5rem; }
+        audio { width: 100%;
+		height: 96px !important;
+		min-height: 48px;
+		background: #f0f0f0;
+		border: 1px solid #ddd;
+		border-radius: 6px;
+                overflow: visible !important;
+		}
         .filename { font-weight: bold; color: #005a9c; }
         .timestamp { color: #555; font-size: 0.9em; }
         .back-btn {
@@ -74,7 +81,7 @@
                                 <li>
                                     <div class="timestamp">${f.timestamp}</div>
                                     <div class="filename">${f.name}</div>
-                                    <audio controls>
+                                    <audio controls preload="none" playsinline>
                                         <source src="${f.url}" type="audio/wav">
                                         您的浏览器不支持 audio 标签。
                                     </audio>
