@@ -19,6 +19,7 @@ type config struct {
 		AudioFile       string `yaml:"AudioFile" json:"audio_file"`
 		RecoderFilePath string `yaml:"RecoderFilePath" json:"Path"`
 		CronString      string `yaml:"CronString" json:"cronString"`
+		WebPort         string `yaml:"WebPort" json:"web_port"`
 	} `yaml:"System" json:"system"`
 }
 

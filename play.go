@@ -1,131 +1,139 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
+	"io/fs"
 	"log"
-	"sync"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
-
-	"github.com/ebitengine/oto/v3"
 )
 
-var streamReader *PCMStreamReader
+type AudioFile struct {
+	Name      string `json:"name"`
+	Timestamp string `json:"timestamp"`
+	URL       string `json:"url"`
+}
 
-func newplay() {
-	op := &oto.NewContextOptions{}
-	op.SampleRate = 8000
-	op.ChannelCount = 1
-	op.Format = oto.FormatSignedInt16LE
+// 从文件名提取时间
+func parseTimeFromFilename(filename string) (time.Time, error) {
+	base := strings.TrimSuffix(filename, ".wav")
+	parts := strings.Split(base, "_")
+	if len(parts) < 3 {
+		return time.Time{}, fmt.Errorf("格式错误: %s", filename)
+	}
+	datePart := parts[1]
+	timePart := parts[2]
+	dtStr := datePart + " " + timePart[:2] + ":" + timePart[2:4] + ":" + timePart[4:6]
+	return time.Parse("2006-01-02 15:04:05", dtStr)
+}
 
-	otoCtx, ready, err := oto.NewContext(op)
+func play() {
+	http.HandleFunc("/", serveIndex)
+	http.HandleFunc("/dirs", listDirs)       // 获取所有日期目录
+	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
+	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
+
+	fmt.Printf("服务器启动中：http://0.0.0.0:%s\n", conf.System.WebPort)
+	log.Fatal(http.ListenAndServe(":"+conf.System.WebPort, nil))
+}
+
+func serveIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, "play.html")
+}
+
+// 列出所有日期目录（如 2025-10-13）
+func listDirs(w http.ResponseWriter, r *http.Request) {
+	var dirs []string
+
+	err := filepath.WalkDir(conf.System.RecoderFilePath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(conf.System.RecoderFilePath, path)
+		if err != nil || rel == "." {
+			return nil
+		}
+		// 简单判断是否为 YYYY-MM-DD 格式
+		if len(rel) == 10 && rel[4] == '-' && rel[7] == '-' {
+			dirs = append(dirs, rel)
+		}
+		return nil
+	})
+
 	if err != nil {
-		log.Fatal("创建录音失败:", err)
+		http.Error(w, "扫描目录失败", http.StatusInternalServerError)
+		return
 	}
-	<-ready
 
-	streamReader = NewPCMStreamReader()
+	// 按日期排序（升序）
+	//sort.Strings(dirs)
 
-	player := otoCtx.NewPlayer(streamReader)
-	defer player.Close()
+	// 按日期排序（降序：最新日期在前）
+	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 
-	log.Println("开始录音和监听...")
-	player.Play()
-
-	for player.IsPlaying() {
-		time.Sleep(time.Millisecond * 100)
-	}
-	log.Println("监听完毕...")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(dirs)
 }
 
-// PCMStreamReader 实现 io.Reader，用于实时播放 []int16 流
-type PCMStreamReader struct {
-	mu            sync.Mutex
-	cond          *sync.Cond    // 用于等待新数据
-	buffer        *bytes.Buffer // 存储所有待播放的字节
-	closed        bool          // 标记流是否已关闭
-	maxBufferSize int           // 限制缓冲区的最大大小
-}
+func listFilesInDir(w http.ResponseWriter, r *http.Request) {
+	dirName := strings.TrimPrefix(r.URL.Path, "/dir/")
+	dirPath := filepath.Join(conf.System.RecoderFilePath, dirName)
 
-// NewPCMStreamReader 创建一个新的流式 Reader
-func NewPCMStreamReader() *PCMStreamReader {
-	reader := &PCMStreamReader{
-		buffer:        bytes.NewBuffer(nil),
-		maxBufferSize: 8000 * 2 * 300, // 假设 8000 采样率，2 字节/采样，缓冲 300 秒的数据
-	}
-	reader.cond = sync.NewCond(&reader.mu)
-	return reader
-}
-
-// WriteChunk 从网络接收数据时调用（外部输入）
-func (r *PCMStreamReader) WriteChunk(chunk []byte) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.closed {
-		return io.ErrClosedPipe
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		http.Error(w, "目录不存在", http.StatusNotFound)
+		return
 	}
 
-	// 检查缓冲区是否已达到最大容量
-	if r.buffer.Len()+len(chunk) > r.maxBufferSize {
-		// 缓冲区满，这里可以选择：
-		// 1. 丢弃当前 chunk (如果允许丢帧，且希望保持低延迟)
-		fmt.Println()
-		log.Printf("缓冲区满 (%.2fMB / %.2fMB)，清空缓存，缓冲区大小: %d\n",
-			float64(r.buffer.Len())/(1024*1024), float64(r.maxBufferSize)/(1024*1024), r.buffer.Len())
-		// return nil // 直接返回，丢弃当前帧
-
-		r.buffer.Reset()
-
-		// 2. 阻塞直到有空间 (如果不能丢帧，且发送方可以阻塞)
-		// 等待 Read 消耗一些数据
-		// for r.buffer.Len()+len(chunk) > r.maxBufferSize && !r.closed {
-		// 	log.Println("缓冲区满，WriteChunk 阻塞等待 Read 消费...")
-		// 	r.cond.Wait()
-		// }
-		// if r.closed { // 再次检查是否在等待期间关闭
-		// 	return io.ErrClosedPipe
-		// }
-	}
-
-	r.buffer.Write(chunk)
-	r.cond.Broadcast() // 唤醒所有等待的 Read
-
-	return nil
-}
-
-// Close 关闭流，通知播放结束
-func (r *PCMStreamReader) Close() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.closed {
-		r.closed = true
-		r.cond.Broadcast() // 唤醒所有等待的 Read
-	}
-}
-
-// Read 实现 io.Reader，被 oto 调用
-func (r *PCMStreamReader) Read(p []byte) (n int, err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for {
-		// 如果 buffer 中有数据，先返回
-		if r.buffer.Len() > 0 {
-			n, _ := r.buffer.Read(p)
-			if n > 0 {
-				r.cond.Broadcast() // 读出数据后，通知 WriteChunk 可能有空间了
-			}
-			return n, nil
+	var files []AudioFile
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		if !strings.HasSuffix(strings.ToLower(info.Name()), ".wav") {
+			return nil
 		}
 
-		// 如果流已关闭，且无数据，返回 EOF
-		if r.closed {
-			return 0, io.EOF
+		tm, err := parseTimeFromFilename(info.Name())
+		if err != nil {
+			log.Printf("跳过文件 %s: %v", info.Name(), err)
+			return nil
 		}
 
-		// 没有数据，阻塞等待新数据
-		r.cond.Wait()
+		// ✅ 正确构造 URL：/recordings/2025-10-14/filename.wav
+		urlPath := "/recordings/" + dirName + "/" + info.Name()
+
+		files = append(files, AudioFile{
+			Name:      info.Name(),
+			Timestamp: tm.Format("2006-01-02 15:04:05"),
+			URL:       urlPath, // ✅ 使用正确路径
+		})
+		return nil
+	})
+
+	if err != nil {
+		http.Error(w, "读取目录失败", http.StatusInternalServerError)
+		return
 	}
+
+	// 按时间排序
+	sort.Slice(files, func(i, j int) bool {
+		ti, _ := time.Parse("2006-01-02 15:04:05", files[i].Timestamp)
+		tj, _ := time.Parse("2006-01-02 15:04:05", files[j].Timestamp)
+		return tj.Before(ti)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(files)
 }

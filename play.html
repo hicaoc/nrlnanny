@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <title>录音播放器</title>
+    <style>
+        body { font-family: sans-serif; margin: 2rem; }
+        h1 { color: #333; }
+        ul { list-style: none; padding: 0; }
+        li {
+            margin: 0.5rem 0;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+        li:hover { background-color: #eee; }
+        audio { width: 100%; margin-top: 0.5rem; }
+        .filename { font-weight: bold; color: #005a9c; }
+        .timestamp { color: #555; font-size: 0.9em; }
+        .back-btn {
+            display: inline-block;
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            background: #007cba;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .back-btn:hover { background: #005a87; }
+    </style>
+</head>
+<body>
+    <h1>录音文件浏览器</h1>
+    <div id="content">
+        <p>加载中...</p>
+    </div>
+
+    <script>
+        const content = document.getElementById('content');
+
+        // 显示目录列表
+        function showDirs() {
+            fetch('/dirs')
+                .then(res => res.json())
+                .then(dirs => {
+                    content.innerHTML = `
+                        <p>点击目录查看录音文件：</p>
+                        <ul>
+                            ${dirs.map(dir => `
+                                <li onclick="showFiles('${dir}')">${dir}</li>
+                            `).join('')}
+                        </ul>
+                    `;
+                })
+                .catch(err => {
+                    content.innerHTML = `<p>加载目录失败: ${err.message}</p>`;
+                    console.error(err);
+                });
+        }
+
+        // 显示某目录下的文件
+        function showFiles(dirName) {
+            fetch(`/dir/${dirName}`)
+                .then(res => res.json())
+                .then(files => {
+                    content.innerHTML = `
+                        <a href="#" onclick="showDirs(); return false;" class="back-btn">← 返回目录</a>
+                        <h2>目录: ${dirName}</h2>
+                        <ul>
+                            ${files.map(f => `
+                                <li>
+                                    <div class="timestamp">${f.timestamp}</div>
+                                    <div class="filename">${f.name}</div>
+                                    <audio controls>
+                                        <source src="${f.url}" type="audio/wav">
+                                        您的浏览器不支持 audio 标签。
+                                    </audio>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                })
+                .catch(err => {
+                    content.innerHTML = `<p>加载文件失败: ${err.message}</p>`;
+                    console.error(err);
+                });
+        }
+
+        // 初始加载目录列表
+        showDirs();
+    </script>
+</body>
+</html>

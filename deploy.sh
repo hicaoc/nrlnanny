@@ -32,9 +32,9 @@ time=`date "+%Y%m%d%H%M%S"`
 for i in $hostlist ; do     
 echo "deploying to $i"
    scp nrlnanny root@$i:
+   scp play.html l root@$i:/nrlnanny/
    #scp nrlnanny.yaml root@$i:
    ssh root@$i "cd /nrlnanny; mv nrlnanny nrlnanny.$time ; cp /root/nrlnanny . ; systemctl restart nrlnanny "
-
  
 done
 

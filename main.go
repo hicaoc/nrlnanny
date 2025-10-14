@@ -15,5 +15,7 @@ func main() {
 
 	go startcron()
 
+	go play()
+
 	udpClient()
 }

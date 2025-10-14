@@ -1,8 +1,10 @@
 System:
-    Server: "js.nrlptt.com"
-    Port: "60050"
-    Callsign: "BH4RPN"
-    SSID: 250
-    AudioFile: "./test.wav"
-    RecoderFilePath: "./recoder"
-    CronString: "* * * * *"
+ # NRLNanny配置
+    Server: "js.nrlptt.com"  # 服务器地址
+    Port: "60050"  # 服务器端口
+    Callsign: "BH4RPN"  # 虚拟设备呼号
+    SSID: 250  # 虚拟设备SSID
+    AudioFile: "./test.wav" # 需要播放的wav音频文件路径和文件名
+    RecoderFilePath: "./recoder"  # 录音文件保存路径
+    CronString: "* * * * *"  # 播放周期配置，linux cron格式
+    WebPort : "8080"  # 监听端口
