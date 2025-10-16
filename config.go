@@ -68,6 +68,10 @@ func (c *config) init() {
 		os.Exit(0)
 	}
 
+	if conf.System.WebPort == "" {
+		conf.System.WebPort = "8080"
+	}
+
 }
 
 // Exist 判断文件存在

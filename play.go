@@ -47,7 +47,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, "play.html")
+	http.ServeFile(w, r, "./play.html")
 }
 
 // 列出所有日期目录（如 2025-10-13）

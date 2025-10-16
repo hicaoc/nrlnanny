@@ -153,7 +153,7 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	// 创建WAV文件
 	file, err := os.Create(filePath)
 	if err != nil {
-		log.Printf("创建文件 %s 失败: %v\n", filePath, err)
+		log.Printf("创建文件 %s 失败: %v, %v\n", filePath, err, []byte(filePath))
 		return
 	}
 	defer file.Close()
