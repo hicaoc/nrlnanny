@@ -38,6 +38,13 @@ func playAudio() {
 		return
 	}
 
+	if !Exist(conf.System.AudioFilePath) {
+		if err := os.MkdirAll(conf.System.AudioFilePath, 0755); err != nil {
+			log.Printf("轮播目录 %s 不存在，并且创建失败: %v\n", conf.System.AudioFilePath, err)
+			return
+		}
+	}
+
 	// 1. 首次全量扫描
 	fullRescan(dir)
 
