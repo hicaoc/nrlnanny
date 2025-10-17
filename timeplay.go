@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,18 +15,7 @@ import (
 
 var (
 	filenameRegex = regexp.MustCompile(`-(\d{2})(\d{2})\.wav$`)
-
-	scheduledTimers []timerEntry // 新增：保存所有活跃的 timer
-	timersMu        sync.Mutex   // 保护并发访问
-
-	//playMu sync.Mutex // 保护播放器
 )
-
-type timerEntry struct {
-	time  time.Time
-	file  AudioFileInfo
-	timer *time.Timer
-}
 
 type AudioFileInfo struct {
 	Path   string
@@ -33,184 +23,240 @@ type AudioFileInfo struct {
 	Minute int
 }
 
-func playAudio() {
+// 全局状态（建议后续封装成 Scheduler 结构体）
+var (
+	trackedFiles   = make(map[string]AudioFileInfo) // 跟踪所有有效 .wav 文件
+	scheduledTasks = make(map[string]*time.Timer)   // 文件路径 -> Timer（用于取消）
+	stateMu        sync.RWMutex                     // 读写锁
+)
 
-	if conf.System.AudioFilePath == "" {
-		log.Println("Audio file path is not set. Skipping audio playback.")
+// playAudio 启动调度器
+func playAudio() {
+	dir := conf.System.AudioFilePath
+	if dir == "" {
+		log.Println("❌ Audio file path not set.")
 		return
 	}
 
-	// 首次扫描
-	scanAndReschedule(conf.System.AudioFilePath)
+	// 1. 首次全量扫描
+	fullRescan(dir)
 
-	go watchFiles()
+	// 2. 启动每日零点全量重载
+	go startDailyFullRescan(dir)
 
-	go startDailyReload(conf.System.AudioFilePath)
+	// 3. 启动文件监听（增量处理）
+	go watchFilesIncremental(dir)
 
-	// // 扫描间隔（可配置）
-	// scanInterval := 1 * time.Hour
-
-	// log.Printf("✅ Audio scheduler started. Scanning every %v...", scanInterval)
-
-	// ticker := time.NewTicker(scanInterval)
-	// defer ticker.Stop()
-
-	// // 定期扫描
-	// for range ticker.C {
-	// 	scanAndReschedule(conf.System.AudioFilePath)
-	// }
+	log.Printf("✅ Audio scheduler started. Full rescan at midnight, incremental update on change.")
 }
 
-// scanAndSchedule 扫描目录，为今天未过时间的文件安排播放
-func scanAndReschedule(dir string) {
+// fullRescan 全量扫描目录，重建 trackedFiles 和 scheduledTasks
+func fullRescan(dir string) {
+	log.Printf("🔄 开始全量扫描目录: %s", dir)
+
 	now := time.Now()
-	log.Printf("🔄 扫描轮播目录: %s", dir)
 
-	// 🔒 加锁操作定时器列表
-	timersMu.Lock()
+	newTracked := make(map[string]AudioFileInfo)
+	var added []AudioFileInfo
 
-	// Step 1: 停止并清空所有之前的定时器
-	for _, entry := range scheduledTimers {
-		if entry.timer != nil {
-			entry.timer.Stop()
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(strings.ToLower(info.Name()), ".wav") {
+			return nil
 		}
-	}
-	scheduledTimers = nil // 清空旧计划
 
-	timersMu.Unlock()
+		matches := filenameRegex.FindStringSubmatch(info.Name())
+		if matches == nil {
+			return nil
+		}
 
-	// Step 2: 扫描新文件
-	files, err := scanFiles(dir)
+		hour := mustParseInt(matches[1])
+		minute := mustParseInt(matches[2])
+		if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+			log.Printf("⚠️ 无效时间 %02d:%02d in %s", hour, minute, info.Name())
+			return nil
+		}
+
+		fileInfo := AudioFileInfo{
+			Path:   path,
+			Hour:   hour,
+			Minute: minute,
+		}
+		newTracked[path] = fileInfo
+
+		// 检查是否是今天且未过时间
+		playTime := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+		if playTime.After(now) {
+			added = append(added, fileInfo)
+		}
+
+		return nil
+	})
 	if err != nil {
 		log.Printf("❌ 扫描错误: %v", err)
-		return
 	}
 
-	if len(files) == 0 {
-		log.Printf("🟡 没有找到可以播放的文件.")
-		return
+	// 加锁操作状态
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	// 停止所有旧任务
+	for _, timer := range scheduledTasks {
+		timer.Stop()
 	}
+	scheduledTasks = make(map[string]*time.Timer)
 
-	var scheduledCount int
+	// 应用新 trackedFiles
+	trackedFiles = newTracked
 
-	for _, f := range files {
-		file := f
+	// 重新安排今天的任务
+	for _, file := range added {
 		playTime := time.Date(now.Year(), now.Month(), now.Day(), file.Hour, file.Minute, 0, 0, now.Location())
-
-		if playTime.Before(now) || playTime.Equal(now) {
-			continue // 已过，跳过
-		}
-
 		duration := playTime.Sub(now)
 
-		// 创建定时器
 		timer := time.AfterFunc(duration, func() {
 			sendG711(readWAV(file.Path))
 		})
 
-		// 保存记录以便后续取消
-		timersMu.Lock()
-		scheduledTimers = append(scheduledTimers, timerEntry{
-			time:  playTime,
-			file:  file,
-			timer: timer,
-		})
-		timersMu.Unlock()
+		scheduledTasks[file.Path] = timer
 
-		log.Printf("⏰ Scheduled: %s for %s (%v from now)",
+		log.Printf("⏰ Scheduled (full): %s for %s (%v)",
 			filepath.Base(file.Path),
 			playTime.Format("15:04:05"),
 			duration.Round(time.Second))
-		scheduledCount++
 	}
 
-	log.Printf("✅ 扫描完成. 共%d个文件今天要播放.", scheduledCount)
+	log.Printf("✅ 全量扫描完成. 跟踪 %d 个文件，安排 %d 个今日播放任务.", len(trackedFiles), len(scheduledTasks))
 }
 
-// scanFiles 扫描目录，返回有效文件列表
-func scanFiles(dir string) ([]AudioFileInfo, error) {
-	var files []AudioFileInfo
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+// watchFilesIncremental 增量监听文件变化
+func watchFilesIncremental(dir string) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal("❌ 无法创建 watcher:", err)
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(dir); err != nil {
+		log.Printf("❌ 无法监听目录 %s: %v", dir, err)
+		return
+	}
+
+	log.Printf("👀 开始增量监听目录: %s", dir)
+
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+
+			path := event.Name
+			if !strings.HasSuffix(strings.ToLower(path), ".wav") {
+				continue
+			}
+
+			switch {
+
+			case event.Has(fsnotify.Create):
+				handleFileAdded(path)
+			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
+				handleFileRemoved(path)
+			}
+
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Println("⚠️ 监听错误:", err)
 		}
-		if info.IsDir() {
-			return nil
-		}
-		name := info.Name()
-		matches := filenameRegex.FindStringSubmatch(name)
-		if matches != nil {
-			hour := mustParseInt(matches[1])
-			minute := mustParseInt(matches[2])
-			files = append(files, AudioFileInfo{
-				Path:   path,
-				Hour:   hour,
-				Minute: minute,
-			})
-		}
-		return nil
+	}
+}
+
+// handleFileAdded 处理新增文件（只处理今天未来的）
+func handleFileAdded(path string) {
+	log.Printf("🟢 文件新增: %s", path)
+	matches := filenameRegex.FindStringSubmatch(filepath.Base(path))
+	if matches == nil {
+		log.Printf("🟡 跳过非规范命名文件: %s", path)
+		return
+	}
+
+	hour := mustParseInt(matches[1])
+	minute := mustParseInt(matches[2])
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+		log.Printf("⚠️ 无效时间 %02d:%02d in %s", hour, minute, path)
+		return
+	}
+
+	fileInfo := AudioFileInfo{Path: path, Hour: hour, Minute: minute}
+
+	now := time.Now()
+	playTime := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+
+	// 只安排今天未来的任务
+	if playTime.Before(now) || playTime.Equal(now) {
+		log.Printf("🕒 已过播放时间，跳过: %s", path)
+		return
+	}
+
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	// 记录到跟踪列表
+	trackedFiles[path] = fileInfo
+
+	// 设置定时器
+	duration := playTime.Sub(now)
+	timer := time.AfterFunc(duration, func() {
+		sendG711(readWAV(path))
 	})
-	return files, err
+
+	scheduledTasks[path] = timer
+
+	log.Printf("⏰ Scheduled (add): %s for %s (%v from now)",
+		filepath.Base(path),
+		playTime.Format("15:04:05"),
+		duration.Round(time.Second))
 }
 
+// handleFileRemoved 处理文件删除
+func handleFileRemoved(path string) {
+	log.Printf("🔴 文件删除: %s", path)
+
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	// 从 tracked 中移除
+	delete(trackedFiles, path)
+
+	// 停止定时器
+	if timer, exists := scheduledTasks[path]; exists {
+		timer.Stop()
+		delete(scheduledTasks, path)
+		log.Printf("🛑 已取消播放任务: %s", path)
+	}
+}
+
+// startDailyFullRescan 每天 00:00 执行一次全量重扫
+func startDailyFullRescan(dir string) {
+	for {
+		now := time.Now()
+		next := now.Add(24 * time.Hour)
+		nextMidnight := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
+		duration := nextMidnight.Sub(now)
+
+		log.Printf("⏳ 等待到明日零点进行全量重载: %v 后", duration.Round(time.Second))
+
+		time.Sleep(duration)
+
+		// 触发全量重扫（自动清理旧任务）
+		fullRescan(dir)
+	}
+}
+
+// 辅助函数
 func mustParseInt(s string) int {
 	var n int
 	fmt.Sscanf(s, "%d", &n)
 	return n
-}
-
-func watchFiles() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer watcher.Close()
-
-	done := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case event := <-watcher.Events:
-
-				if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) {
-					log.Println("event:", event)
-					time.Sleep(time.Second * 5)
-					scanAndReschedule(conf.System.AudioFilePath)
-
-				}
-			case err := <-watcher.Errors:
-				log.Println("error:", err)
-			}
-		}
-	}()
-
-	err = watcher.Add(conf.System.AudioFilePath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	<-done
-	time.Sleep(time.Second)
-	log.Println("watching...")
-
-}
-
-func startDailyReload(dir string) {
-	go func() {
-		for {
-			now := time.Now()
-			// 计算到明天零点的时间
-			next := now.Add(24 * time.Hour)
-			nextMidnight := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, next.Location())
-			duration := nextMidnight.Sub(now)
-
-			log.Printf("⏳ 等待到明天零点重新加载音频任务: %v 后", duration.Round(time.Second))
-
-			// 等待到零点
-			time.Sleep(duration)
-
-			// 触发重新调度（清空旧任务，加载新一天任务）
-			scanAndReschedule(dir)
-		}
-	}()
 }
