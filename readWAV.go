@@ -1,52 +1,54 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/go-audio/wav"
 )
 
-var g711buf []byte
+// var g711buf []byte
 
-var lastAudioFileModTime time.Time
+// var lastAudioFileModTime time.Time
 
-func readWAV() {
+func readWAV(filepath string) []byte {
 
-	fileInfo, err := os.Stat(conf.System.AudioFile)
+	_, err := os.Stat(filepath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("信标文件打开错误：", err)
+		return nil
 	}
 
 	// 获取修改时间
-	modTime := fileInfo.ModTime()
+	//modTime := fileInfo.ModTime()
 
-	if modTime.Equal(lastAudioFileModTime) {
-		fmt.Println("文件 " + conf.System.AudioFile + " 未变化，无需重新加载,直接使用上次加载的文件")
-		return
-	}
+	// if modTime.Equal(lastAudioFileModTime) {
+	// 	fmt.Println("文件 " + conf.System.AudioFile + " 未变化，无需重新加载,直接使用上次加载的文件")
+	// 	return g711buf
+	// }
 
-	lastAudioFileModTime = modTime
+	// lastAudioFileModTime = modTime
 
-	fmt.Println("Reading WAV file...")
-	file, err := os.Open(conf.System.AudioFile)
+	log.Println("读取 WAV 文件...", filepath)
+	file, err := os.Open(filepath)
 	if err != nil {
-		fmt.Println("Error opening wav audio file:", err)
-		fmt.Println(err)
+		log.Println("Error opening wav audio file:", err)
+		log.Println(err)
+		return nil
 	}
 	defer file.Close()
 
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
-		fmt.Println("invalid WAV file")
+		log.Println("invalid WAV file", filepath)
+		return nil
 	}
 
 	// 解码
 	wavbuf, err := decoder.FullPCMBuffer()
-	if err != nil {
-		fmt.Println(err)
+	if err != nil || wavbuf == nil {
+		log.Println(err)
+		return nil
 	}
 
 	// buf 包含 PCM 数据
@@ -56,20 +58,20 @@ func readWAV() {
 	log.Printf("Number of samples: %d\n", wavbuf.NumFrames())
 
 	if wavbuf.Format.NumChannels != 1 {
-		fmt.Println("only mono WAV files are supported")
-		return
+		log.Println("only mono WAV files are supported")
+		return nil
 	}
 
 	if decoder.BitDepth != 16 {
-		fmt.Println("only 16-bit WAV files are supported")
-		return
+		log.Println("only 16-bit WAV files are supported")
+		return nil
 	}
 
 	if decoder.SampleRate != 8000 {
-		fmt.Println("only 8000 Hz WAV files are supported")
-		return
+		log.Println("only 8000 Hz WAV files are supported")
+		return nil
 	}
 
-	g711buf = G711Encode(wavbuf.Data)
+	return G711Encode(wavbuf.Data)
 
 }

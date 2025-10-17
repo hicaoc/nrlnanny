@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -46,23 +47,38 @@ func (o sendvoice) Run() {
 
 	switch strings.ToLower(filepath.Ext(conf.System.AudioFile)) {
 	case ".wav":
-		readWAV()
+
+		sendG711(readWAV(conf.System.AudioFile))
 
 	case ".mp3":
 		ReadMP3()
+	}
+
+}
+
+var playtimersMu sync.Mutex // 保护并发访问
+
+func sendG711(data []byte) {
+
+	playtimersMu.Lock()
+	defer playtimersMu.Unlock()
+
+	if data == nil {
+		log.Println("信标文件为空，无法播放")
+		return
 	}
 
 	cpuid := calculateCpuId(fmt.Sprintf("%s-250", conf.System.Callsign))
 
 	log.Print("信标文件加载完成，信标开始发送.")
 
-	for i := 0; i < len(g711buf); i += 500 {
+	for i := 0; i < len(data); i += 500 {
 
-		if i+500 > len(g711buf) {
+		if i+500 > len(data) {
 			break
 		}
 
-		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, g711buf[i:i+500])
+		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, data[i:i+500])
 		dev.udpSocket.Write(packet)
 
 		//log.Printf("Sample send ... %d \n", i) // At(sampleIdx, channel)
