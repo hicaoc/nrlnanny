@@ -19,7 +19,7 @@ var (
 
 var dev *deviceInfo
 
-func udpClient() error {
+func udpClient() {
 
 	dev = new(deviceInfo)
 	//dev.ISOnline = true
@@ -34,7 +34,7 @@ func udpClient() error {
 
 	if err != nil {
 		log.Printf("Failed to resolve UDP address for server %v.", dev.udpSocket)
-		return err
+		return
 	}
 
 	dev.udpSocket, err = net.DialUDP("udp", nil, udpAddr)
@@ -59,8 +59,6 @@ func udpClient() error {
 
 	go dev.sendHeartbear()
 	udpProcess(dev.udpSocket)
-
-	return nil
 
 }
 

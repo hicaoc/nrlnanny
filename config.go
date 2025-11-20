@@ -18,6 +18,7 @@ type config struct {
 		SSID            byte   `yaml:"SSID" json:"ssid"`
 		AudioFile       string `yaml:"AudioFile" json:"audio_file"`
 		AudioFilePath   string `yaml:"AudioFilePath" json:"audio_file_Path"`
+		MusicFilePath   string `yaml:"MusicFilePath" json:"music_file_Path"`
 		RecoderFilePath string `yaml:"RecoderFilePath" json:"Path"`
 		CronString      string `yaml:"CronString" json:"cronString"`
 		WebPort         string `yaml:"WebPort" json:"web_port"`

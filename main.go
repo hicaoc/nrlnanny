@@ -19,5 +19,7 @@ func main() {
 
 	go playAudio()
 
+	go playMusic()
+
 	udpClient()
 }

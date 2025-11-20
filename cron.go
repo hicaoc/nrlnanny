@@ -64,13 +64,13 @@ func sendG711(data []byte) {
 	defer playtimersMu.Unlock()
 
 	if data == nil {
-		log.Println("信标文件为空，无法播放")
+		log.Println("文件为空，无法播放")
 		return
 	}
 
 	cpuid := calculateCpuId(fmt.Sprintf("%s-250", conf.System.Callsign))
 
-	log.Print("信标文件加载完成，信标开始发送.")
+	log.Print("音频文件加载完成，开始发送.")
 
 	for i := 0; i < len(data); i += 500 {
 
@@ -88,6 +88,6 @@ func sendG711(data []byte) {
 
 	}
 	fmt.Println()
-	log.Println("信标发送完成")
+	log.Println("发送完成")
 
 }

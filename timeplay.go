@@ -79,7 +79,7 @@ func fullRescan(dir string) {
 		hour := mustParseInt(matches[1])
 		minute := mustParseInt(matches[2])
 		if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
-			log.Printf("⚠️ 无效时间 %02d:%02d in %s", hour, minute, info.Name())
+			log.Printf("⚠️ 无效音频播放时间 %02d:%02d in %s", hour, minute, info.Name())
 			return nil
 		}
 
@@ -99,7 +99,7 @@ func fullRescan(dir string) {
 		return nil
 	})
 	if err != nil {
-		log.Printf("❌ 扫描错误: %v", err)
+		log.Printf("❌ 扫描音频文件错误: %v", err)
 	}
 
 	// 加锁操作状态
