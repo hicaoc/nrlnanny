@@ -9,72 +9,74 @@ const (
 )
 
 func alaw2linear(code byte) int16 {
-	// XOR with 0x55
 	code ^= 0x55
 
-	// Extract segment and quantization index
-	seg := (code & SEG_MASK) >> 4
-	quant := code & QUANT_MASK
+	sign := int16(code & 0x80)
+	seg := (code & 0x70) >> 4
+	quant := code & 0x0F
 
-	// Compute base sample value
-	sample := int16((quant << 4) | 0x08)
-
-	// Apply segment scaling
-	if seg > 0 {
-		sample = (sample + 0x100) << (seg - 1)
+	var sample int16
+	if seg == 0 {
+		sample = int16(quant<<1) | 0x01
+	} else {
+		sample = (int16(quant<<1) | 0x21) << (seg - 1)
 	}
 
-	// Apply sign: if original code had sign bit (0x80), it's positive; else negative
-	if code&0x80 != 0 {
-		return sample
+	if sign != 0 {
+		return sample << 3
 	}
-	return -sample
+	return -(sample << 3)
 }
 
 // Linear2Alaw converts a 16-bit linear PCM sample to an 8-bit A-law sample.
 func Linear2Alaw(sample int16) byte {
-	// 1. Extract the sign bit
-	sign := (sample >> 8) & 0x80
-
-	// 2. Handle negative numbers and avoid overflow
-	if sign != 0 {
+	var sign byte
+	if sample < 0 {
 		if sample == -32768 {
-			sample = 32767 // Handle smallest negative number (to avoid overflow)
-		} else {
-			sample = -sample // Take absolute value for encoding
+			sample = -32767
+		}
+		sample = -sample
+		sign = 0x00
+	} else {
+		sign = 0x80
+	}
+
+	// 13-bit absolute value for A-law
+	pcm := sample >> 3
+
+	seg := byte(0)
+	if pcm >= 32 {
+		seg = 1
+		t := int16(64)
+		for seg < 7 && pcm >= t {
+			t <<= 1
+			seg++
 		}
 	}
 
-	// 4. Add bias (A-law encoding bias is 132)
-	sample += 132
-	if sample < 0 {
-		sample = 0 // Ensure sample is not negative after adding bias
+	var mant byte
+	if seg == 0 {
+		mant = byte(pcm>>1) & 0x0F
+	} else {
+		mant = byte(pcm>>seg) & 0x0F
 	}
 
-	// 5. Calculate segment number (seg)
-	seg := 7
-	for i := 0x4000; i >= 0x40 && (int(sample)&i) == 0; i >>= 1 {
-		seg-- // Determine segment based on higher bits of the sample
-	}
-
-	// 6. Calculate mantissa (mant)
-	mant := (int(sample) >> (seg + 3)) & 0x0f // Extract mantissa (low 4 bits)
-
-	// 7. Combine segment number and mantissa
-	alaw := byte((seg << 4) | mant) // Combine segment and mantissa into an 8-bit value
-
-	// 8. Perform XOR operation based on the sign bit and return the result
-	if sign != 0 {
-		return (alaw ^ 0xD5) & 0xff // XOR with 0xD5 for negative samples
-	}
-	return (alaw ^ 0x55) & 0xff // XOR with 0x55 for positive samples
+	return (sign | (seg << 4) | mant) ^ 0x55
 }
 
-// Encode converts a slice of 16-bit linear PCM samples to a slice of 8-bit A-law samples.
+// G711Encode converts a slice of 16-bit linear PCM samples to a slice of 8-bit A-law samples.
 func G711Encode(pcmData []int) []byte {
 	encoded := make([]byte, len(pcmData))
 	for i := range pcmData {
 		encoded[i] = Linear2Alaw(int16(pcmData[i]))
 	}
 	return encoded
+}
+
+func G711Decode(encodedData []byte) []int {
+	decoded := make([]int, len(encodedData))
+	for i := range encodedData {
+		decoded[i] = int(alaw2linear(encodedData[i]))
+	}
+	return decoded
 }

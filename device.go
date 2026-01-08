@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var cpuid []byte
+
 type deviceInfo struct {
 	ID       int    `json:"id" db:"id"` //设备唯一编号
 	Name     string `json:"name" db:"name"`
@@ -21,9 +23,7 @@ type deviceInfo struct {
 
 func (d *deviceInfo) sendHeartbear() {
 
-	cpuid := calculateCpuId(d.CallSign + "-250")
-
-	packet := encodeNRL21(d.CallSign, 250, 2, 250, cpuid, []byte{})
+	packet := encodeNRL21(d.CallSign, d.SSID, 2, 250, cpuid, []byte{})
 
 	for {
 

@@ -26,7 +26,7 @@ func udpClient() {
 	dev.CallSign = conf.System.Callsign
 	//dev.SSID = conf.System.SSID
 	dev.DevModel = 250
-	dev.SSID = 250
+	dev.SSID = conf.System.SSID
 
 	//创建到服务器的连接
 

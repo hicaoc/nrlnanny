@@ -65,10 +65,10 @@ type G711Voice struct {
 	DATA   []byte
 }
 
-func calculateCpuId(callSign string) []byte {
+func calculateCpuId(callSignssid string) []byte {
 	// 将字符串生成 32 位哈希值
 	var hash uint32 = 0
-	for _, char := range callSign {
+	for _, char := range callSignssid {
 		hash = (hash*31 + uint32(char))
 	}
 

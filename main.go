@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // fmt.Println("heck database support ipv4:", db.IsIPv4())     // check database support ip type
 // fmt.Println("check database support ip type:", db.IsIPv6()) // check database support ip type
 // fmt.Println("database build time:", db.BuildTime())         // database build time
@@ -8,6 +10,8 @@ package main
 func main() {
 
 	conf.init()
+
+	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
 	go StartRecoder()
 

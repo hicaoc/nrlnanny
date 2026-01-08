@@ -68,8 +68,6 @@ func sendG711(data []byte) {
 		return
 	}
 
-	cpuid := calculateCpuId(fmt.Sprintf("%s-250", conf.System.Callsign))
-
 	log.Print("音频文件加载完成，开始发送.")
 
 	for i := 0; i < len(data); i += 500 {

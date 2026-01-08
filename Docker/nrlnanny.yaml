@@ -1,10 +1,12 @@
 System:
-    Server: "nrlptt.com"
-    Port: "60050"
-    Callsign: "XX4XXX"
-    SSID: 250
-    AudioFilePath : "./audio" # wav音频文件路径       
-    RecoderFilePath: "/nrlnanny/data/recoder"
-    CronString: "* * * * *"
-    AudioFile: ""
-    WebPort : "8080"
+ # NRLNanny配置
+    Server: "nrlptt.com"  # 服务器地址
+    Port: "60050"  # 服务器端口
+    Callsign: "RECORD"  # 虚拟设备呼号
+    SSID: 250  # 虚拟设备SSID
+    music_file_Path: "./music"
+    AudioFilePath : "./audio" # wav音频文件路径   
+    RecoderFilePath: "./recoder"  # 录音文件保存路径
+    CronString: "* * * * *"  # 播放周期配置，linux cron格式
+    AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名
+    WebPort : "8080"  # 监听端口
