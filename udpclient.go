@@ -123,6 +123,9 @@ func NRL21parser(nrl *NRL21packet) {
 
 	case 9: //服务器互联
 
+	case 11: //NRL AT指令
+		//fmt.Println("NRL AT指令:", string(nrl.DATA))
+
 	default:
 		fmt.Println("unknow data:", nrl.Type, nrl)
 		//conn.WriteToUDP(packet, n.Addr)

@@ -68,6 +68,7 @@ func Linear2Alaw(sample int16) byte {
 func G711Encode(pcmData []int) []byte {
 	encoded := make([]byte, len(pcmData))
 	for i := range pcmData {
+		pcmData[i] = AdjustVolumeInt(pcmData[i], conf.System.Volume)
 		encoded[i] = Linear2Alaw(int16(pcmData[i]))
 	}
 	return encoded
@@ -79,4 +80,39 @@ func G711Decode(encodedData []byte) []int {
 		decoded[i] = int(alaw2linear(encodedData[i]))
 	}
 	return decoded
+}
+
+// AdjustVolume 调整 16-bit PCM 音频的音量
+// samples: 原始 PCM 采样点（int16）
+// volume: 音量缩放因子（0.0 ～ 1.0 为降音量，>1.0 为增益，可能削波）
+// 返回调整后的采样点
+func AdjustVolume(samples []int16, volume float64) []int16 {
+	result := make([]int16, len(samples))
+	for i, sample := range samples {
+		// 转为 float64 进行缩放
+		scaled := float64(sample) * volume
+
+		// 限幅（clipping）到 int16 范围 [-32768, 32767]
+		if scaled > 32767 {
+			scaled = 32767
+		} else if scaled < -32768 {
+			scaled = -32768
+		}
+
+		result[i] = int16(scaled)
+	}
+	return result
+}
+
+func AdjustVolumeInt(sample int, volume float64) int {
+	scaled := float64(sample) * volume
+
+	// 限幅（clipping）到 int16 范围 [-32768, 32767]
+	if scaled > 32767 {
+		scaled = 32767
+	} else if scaled < -32768 {
+		scaled = -32768
+	}
+
+	return int(scaled)
 }

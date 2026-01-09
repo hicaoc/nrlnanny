@@ -5,6 +5,7 @@ System:
     Callsign: "RECORD"  # 虚拟设备呼号
     SSID: 250  # 虚拟设备SSID
     music_file_Path: "./music"
+    Volume: 0.1 # 音量
     AudioFilePath : "./audio" # wav音频文件路径   
     RecoderFilePath: "./recoder"  # 录音文件保存路径
     CronString: "* * * * *"  # 播放周期配置，linux cron格式

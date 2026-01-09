@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // fmt.Println("heck database support ipv4:", db.IsIPv4())     // check database support ip type
 // fmt.Println("check database support ip type:", db.IsIPv6()) // check database support ip type
@@ -16,6 +19,8 @@ func main() {
 	go StartRecoder()
 
 	go newplay()
+
+	time.Sleep(time.Second * 1)
 
 	go startcron()
 
