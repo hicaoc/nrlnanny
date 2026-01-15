@@ -39,7 +39,7 @@ func udpClient() {
 
 	dev.udpSocket, err = net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "连接服务器失败: %v\n", err)
+		log.Printf("连接服务器失败: %v\n", err)
 		os.Exit(1)
 	}
 	log.Printf("已连接服务器: %v %v\n", udpAddr, conf.System.Server)
@@ -65,7 +65,7 @@ func udpProcess(conn *net.UDPConn) {
 	for {
 		n, remoteaddr, err := conn.ReadFromUDP(data)
 		if err != nil {
-			fmt.Println("failed read udp msg, error: ", err)
+			log.Println("failed read udp msg, error: ", err)
 			continue
 		}
 
@@ -123,7 +123,7 @@ func NRL21parser(nrl *NRL21packet) {
 		//fmt.Println("NRL AT指令:", string(nrl.DATA))
 
 	default:
-		fmt.Println("unknow data:", nrl.Type, nrl)
+		log.Println("unknow data:", nrl.Type, nrl)
 		//conn.WriteToUDP(packet, n.Addr)
 
 	}
@@ -133,7 +133,7 @@ func NRL21parser(nrl *NRL21packet) {
 func PlayAndSaveVoice(nrl *NRL21packet) {
 
 	if nrl.CallSign != lastcallsign || nrl.SSID != lastssid || time.Since(lasttime) > time.Second*2 {
-		fmt.Println()
+		// fmt.Println()
 		log.Printf("[%s-%d] 新语音呼叫\n", nrl.CallSign, nrl.SSID)
 		recorder.Stop()
 		recorder = NewRecorder(fmt.Sprintf("%s-%d", nrl.CallSign, nrl.SSID))

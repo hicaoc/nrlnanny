@@ -31,7 +31,21 @@ var (
 	currentQueue      MusicQueue
 	currentPlayingID  int = -1
 	musicUpdateChan       = make(chan struct{}, 1) // 用于通知播放器有新文件
+	manualNextID          = -1                     // Manually selected next song ID
 )
+
+// PlayMusicByID schedules a song to be played immediately
+func PlayMusicByID(id int) {
+	musicstateMu.Lock()
+	manualNextID = id
+	musicstateMu.Unlock()
+
+	// Interrupt current playback
+	select {
+	case nextmusic <- true:
+	default:
+	}
+}
 
 func init() {
 	// Initialize random seed
@@ -143,6 +157,9 @@ func buildMusicQueue(files []MusicFileInfo) {
 	// 让我们检查一下原代码... 原代码在 buildMusicQueue 里调用了 go playNextMusic()。
 	// 这会导致每次全量扫描都启动一个新的播放循环，这是个 BUG！
 	// 我们应该只在 playMusic 中启动一次 playNextMusic。
+
+	// Update TUI
+	updateMusicList(currentQueue.files, currentPlayingID)
 }
 
 // 播放下一个音乐
@@ -153,6 +170,10 @@ func playNextMusic() {
 	// 但为了保持兼容性，我们还是放在这里，但要注意调用位置。
 	// 修正：原代码在 buildMusicQueue 里调用，确实有问题。
 	// 我们改为在 playMusic 中显式调用。
+
+	// 我们改为在 playMusic 中显式调用。
+
+	forcePrevious := false
 
 	for {
 		musicstateMu.Lock()
@@ -178,24 +199,75 @@ func playNextMusic() {
 		var minID int = -1
 		var foundNext bool = false
 
-		// 1. 尝试找到比当前 ID 大的最小 ID
-		for i, file := range queue {
-			if currentPlayingID == -1 || file.ID > currentPlayingID {
-				// 这是一个候选
-				if !foundNext || file.ID < minID {
-					minID = file.ID
+		// 0. Check for manual override
+		if manualNextID != -1 {
+			for i, file := range queue {
+				if file.ID == manualNextID {
 					nextIndex = i
+					minID = file.ID // Not used but keeps consistency
 					foundNext = true
+					break
+				}
+			}
+			// Reset manual override
+			manualNextID = -1
+		}
+
+		// 1. 尝试找到比当前 ID 大的最小 ID (Only if manual not found/set)
+		if !foundNext {
+			if forcePrevious {
+				// Try to find Max ID < currentPlayingID
+				var maxID int = -1
+				for i, file := range queue {
+					if currentPlayingID == -1 || file.ID < currentPlayingID {
+						// Candidate
+						if !foundNext || file.ID > maxID {
+							maxID = file.ID
+							nextIndex = i
+							foundNext = true
+						}
+					}
+				}
+				// Reset
+				forcePrevious = false
+			} else {
+				// Determine Next (Min ID > Current)
+				for i, file := range queue {
+					if currentPlayingID == -1 || file.ID > currentPlayingID {
+						// 这是一个候选
+						if !foundNext || file.ID < minID {
+							minID = file.ID
+							nextIndex = i
+							foundNext = true
+						}
+					}
 				}
 			}
 		}
 
-		// 2. 如果没找到（说明当前 ID 已经是最大，或者刚开始），找整个队列最小的 ID（循环）
+		// 2. 如果没找到（说明当前 ID 已经是最大(Next)或最小(Prev)，或者刚开始）
+		// Find wrap around
 		if !foundNext {
-			for i, file := range queue {
-				if nextIndex == -1 || file.ID < minID {
-					minID = file.ID
-					nextIndex = i
+			minID = -1  // Reuse for Next logic
+			maxID := -1 // Use for Prev logic
+
+			if forcePrevious {
+				// Find absolute Max ID (Wrap to end)
+				for i, file := range queue {
+					if !foundNext || file.ID > maxID {
+						maxID = file.ID
+						nextIndex = i
+						foundNext = true
+					}
+				}
+				forcePrevious = false
+			} else {
+				// Find absolute Min ID (Wrap to start)
+				for i, file := range queue {
+					if nextIndex == -1 || file.ID < minID {
+						minID = file.ID
+						nextIndex = i
+					}
 				}
 			}
 		}
@@ -213,6 +285,9 @@ func playNextMusic() {
 
 		// 解锁以执行播放操作
 		musicstateMu.Unlock()
+
+		// Update TUI Highlight
+		updateMusicList(queue, currentPlayingID)
 
 		data := readWAV(fileToPlay.Path)
 
@@ -233,7 +308,8 @@ func playNextMusic() {
 					case <-pausemusic:
 						playstatus = !playstatus
 					case <-lastmusic:
-						goto tag
+						forcePrevious = true
+						break tag
 					default:
 					}
 
@@ -245,13 +321,18 @@ func playNextMusic() {
 					musicPCM <- chunk
 				}
 
+				// Throttle updates: only if percent changes or every 10 chunks
 				percent := (i + 500) * 100 / len(data)
-				fmt.Printf("\r🎵 正在播放: %s (ID: %04d)，播放进度: %d%%", fileToPlay.Path, fileToPlay.ID, percent)
+				// Only update if i % 5000 == 0 (every 10 chunks ~ 0.6s) to reduce TUI load
+				if i%5000 == 0 {
+					statusText := fmt.Sprintf("Playing: %s (ID: %04d) [%d%%]", fileToPlay.Path, fileToPlay.ID, percent)
+					updatePlayStatus(statusText)
+				}
 
 			}
 
-			fmt.Println()
-			log.Println("音乐播放完成")
+			// fmt.Println()
+			//log.Println("音乐播放完成")
 			//sendG711(data)
 		} else {
 			log.Printf("❌ 读取音乐文件失败，从队列中移除: %s", fileToPlay.Path)
@@ -340,6 +421,8 @@ func handleMusicFileAdded(path string) {
 		return currentQueue.files[i].ID < currentQueue.files[j].ID
 	})
 
+	updateMusicList(currentQueue.files, currentPlayingID)
+
 	// 通知播放器有新文件（非阻塞发送）
 	select {
 	case musicUpdateChan <- struct{}{}:
@@ -365,6 +448,7 @@ func handleMusicFileRemoved(path string) {
 		}
 	}
 	currentQueue.files = newQueue
+	updateMusicList(currentQueue.files, currentPlayingID)
 }
 
 // startDailyFullRescanMusic 每天 00:00 执行一次全量重扫

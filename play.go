@@ -38,7 +38,7 @@ func play() {
 	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
 	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
 
-	fmt.Printf("服务器启动中：http://0.0.0.0:%s\n", conf.System.WebPort)
+	log.Printf("服务器启动中：http://0.0.0.0:%s\n", conf.System.WebPort)
 	log.Fatal(http.ListenAndServe(":"+conf.System.WebPort, nil))
 }
 

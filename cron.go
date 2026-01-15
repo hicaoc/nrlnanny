@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,30 @@ func startcron() {
 	//启动计划任务
 	c.Start()
 
+	// Update TUI periodically
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			entries := c.Entries()
+			if len(entries) > 0 {
+				// Find next run time
+				var next time.Time
+				found := false
+				for _, e := range entries {
+					if !found || e.Next.Before(next) {
+						next = e.Next
+						found = true
+					}
+				}
+
+				if found {
+					updateCronInfo(fmt.Sprintf("Next Beacon: %s (in %v)", next.Format("15:04:05"), time.Until(next).Round(time.Second)))
+				}
+			}
+		}
+	}()
+
 	//关闭着计划任务, 但是不能关闭已经在执行中的任务.
 	//defer c.Stop()
 	log.Println("自动发送信标语音功能启动", id1)
@@ -41,7 +66,8 @@ func startcron() {
 
 func (o sendvoice) Run() {
 
-	log.Print("读取信标文件，准备播放信标...")
+	log.Printf("\n读取信标文件，准备播放信标...%s\n", conf.System.AudioFile)
+	updatePlayStatus("Beacon Playing...")
 
 	switch strings.ToLower(filepath.Ext(conf.System.AudioFile)) {
 	case ".wav":

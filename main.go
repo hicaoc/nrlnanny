@@ -24,6 +24,9 @@ func main() {
 
 	conf.init()
 
+	// Initialize TUI
+	initTUI()
+
 	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
 	go StartRecoder()
@@ -40,7 +43,12 @@ func main() {
 
 	go playMusic()
 
-	go keyboardrun()
+	// Remove old keyboard listener
+	// go keyboardrun()
 
-	udpClient()
+	// Run UDP client in background
+	go udpClient()
+
+	// Start TUI (Blocking)
+	startTUI()
 }

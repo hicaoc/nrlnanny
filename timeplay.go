@@ -133,12 +133,13 @@ func fullRescan(dir string) {
 				}
 
 				percent := (i + 500) * 100 / len(data)
-				fmt.Printf("\r目录音频播放进度: %d%%", percent)
+				// fmt.Printf("\r目录音频播放进度: %d%%", percent)
+				updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", file.Path, percent))
 
 			}
 
-			fmt.Println()
-			log.Println("目录音频播放完成")
+			// fmt.Println()
+			//log.Println("目录音频播放完成")
 		})
 
 		scheduledTasks[file.Path] = timer
@@ -150,6 +151,7 @@ func fullRescan(dir string) {
 	}
 
 	log.Printf("✅ 全量扫描完成. 跟踪 %d 个文件，安排 %d 个今日播放任务.", len(trackedFiles), len(scheduledTasks))
+	updateScheduleList(trackedFiles)
 }
 
 // watchFilesIncremental 增量监听文件变化
@@ -244,12 +246,13 @@ func handleFileAdded(path string) {
 			}
 
 			percent := (i + 500) * 100 / len(data)
-			fmt.Printf("\r目录音频播放进度: %d%%", percent)
+			// fmt.Printf("\r目录音频播放进度: %d%%", percent)
+			updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent))
 
 		}
 
-		fmt.Println()
-		log.Println("目录音频播放完成")
+		// fmt.Println()
+		//log.Println("目录音频播放完成")
 	})
 
 	scheduledTasks[path] = timer
@@ -258,6 +261,8 @@ func handleFileAdded(path string) {
 		filepath.Base(path),
 		playTime.Format("15:04:05"),
 		duration.Round(time.Second))
+
+	updateScheduleList(trackedFiles)
 }
 
 // handleFileRemoved 处理文件删除
@@ -276,6 +281,7 @@ func handleFileRemoved(path string) {
 		delete(scheduledTasks, path)
 		log.Printf("🛑 已取消播放任务: %s", path)
 	}
+	updateScheduleList(trackedFiles)
 }
 
 // startDailyFullRescan 每天 00:00 执行一次全量重扫

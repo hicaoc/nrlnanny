@@ -29,7 +29,6 @@ func readWAV(filepath string) []int {
 
 	// lastAudioFileModTime = modTime
 
-	log.Println("读取 WAV 文件...", filepath)
 	file, err := os.Open(filepath)
 	if err != nil {
 		log.Println("Error opening wav audio file:", err)
@@ -52,10 +51,7 @@ func readWAV(filepath string) []int {
 	}
 
 	// buf 包含 PCM 数据
-	log.Printf("Channels: %d\n", wavbuf.Format.NumChannels)
-	log.Printf("Sample Rate: %d\n", decoder.SampleRate)
-	log.Printf("Bit Depth: %d\n", decoder.BitDepth)
-	log.Printf("Number of samples: %d\n", wavbuf.NumFrames())
+	log.Printf("读取%s完成，Channels: %d, Sample Rate: %d, Bit Depth: %d, Number of samples: %d\n", filepath, wavbuf.Format.NumChannels, decoder.SampleRate, decoder.BitDepth, wavbuf.NumFrames())
 
 	if wavbuf.Format.NumChannels != 1 {
 		log.Println("only mono WAV files are supported")
