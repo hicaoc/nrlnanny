@@ -11,7 +11,7 @@ import (
 
 // var lastAudioFileModTime time.Time
 
-func readWAV(filepath string) []byte {
+func readWAV(filepath string) []int {
 
 	_, err := os.Stat(filepath)
 	if err != nil {
@@ -72,6 +72,6 @@ func readWAV(filepath string) []byte {
 		return nil
 	}
 
-	return G711Encode(wavbuf.Data)
+	return wavbuf.Data
 
 }

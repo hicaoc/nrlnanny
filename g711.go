@@ -30,6 +30,7 @@ func alaw2linear(code byte) int16 {
 }
 
 func Linear2Alaw(sample int16) byte {
+
 	return linear2alawTable[uint16(sample)]
 }
 
@@ -131,6 +132,19 @@ func AdjustVolume(samples []int16, volume float64) []int16 {
 }
 
 func AdjustVolumeInt(sample int, volume float64) int {
+	scaled := float64(sample) * volume
+
+	// 限幅（clipping）到 int16 范围 [-32768, 32767]
+	if scaled > 32767 {
+		scaled = 32767
+	} else if scaled < -32768 {
+		scaled = -32768
+	}
+
+	return int(scaled)
+}
+
+func AdjustVolumeInt16(sample int, volume float64) int {
 	scaled := float64(sample) * volume
 
 	// 限幅（clipping）到 int16 范围 [-32768, 32767]

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -48,7 +46,21 @@ func (o sendvoice) Run() {
 	switch strings.ToLower(filepath.Ext(conf.System.AudioFile)) {
 	case ".wav":
 
-		sendG711(readWAV(conf.System.AudioFile))
+		wav := readWAV(conf.System.AudioFile)
+		// pcmbuff := make([][]int, 1) // 移除外部定义，避免并发竞争
+
+		for {
+			for i := 0; i < len(wav); i += 500 {
+				if i+500 < len(wav) {
+					// 每次创建新的切片结构，防止引用被覆盖
+					data := [][]int{wav[i : i+500]}
+					cronPCM <- data
+				}
+
+			}
+		}
+
+		//sendG711(readWAV(conf.System.AudioFile))
 
 	case ".mp3":
 		ReadMP3()
@@ -56,36 +68,77 @@ func (o sendvoice) Run() {
 
 }
 
-var playtimersMu sync.Mutex // 保护并发访问
+func recivePCM() {
 
-func sendG711(data []byte) {
+	ticket := time.NewTicker(time.Microsecond * 62500)
+	defer ticket.Stop()
 
-	playtimersMu.Lock()
-	defer playtimersMu.Unlock()
+	pcmbuf := make([]int, 500)
 
-	if data == nil {
-		log.Println("文件为空，无法播放")
-		return
-	}
-
-	log.Print("音频文件加载完成，开始发送.")
-
-	for i := 0; i < len(data); i += 500 {
-
-		if i+500 > len(data) {
-			break
+	for range ticket.C {
+		// 1. 每一帧开始前必须重置缓冲区为静音，防止残留
+		for i := range pcmbuf {
+			pcmbuf[i] = 0
 		}
 
-		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, data[i:i+500])
-		dev.udpSocket.Write(packet)
+		// 2. 混音: cronPCM (改为 += 混音模式)
+		select {
+		case wav := <-cronPCM:
+			for i, v := range wav[0] {
+				if i < len(pcmbuf) {
+					pcmbuf[i] += v
+				}
+			}
+		default:
+		}
 
-		//log.Printf("Sample send ... %d \n", i) // At(sampleIdx, channel)
+		// 3. 混音: timePCM
+		select {
+		case wav := <-timePCM:
+			for i, v := range wav[0] {
+				if i < len(pcmbuf) {
+					pcmbuf[i] += v
+				}
+			}
+		default:
+		}
 
-		time.Sleep(time.Microsecond * 62500)
-		fmt.Print(".")
+		// 4. 混音: musicPCM
+		select {
+		case wav := <-musicPCM:
+			for i, v := range wav[0] {
+				if i < len(pcmbuf) {
+					pcmbuf[i] += v
+				}
+			}
+		default:
+		}
+
+		// 5. 混音: micPCM
+		select {
+		case wav := <-micPCM:
+			for i, v := range wav[0] {
+				if i < len(pcmbuf) {
+					pcmbuf[i] += v
+				}
+			}
+		default:
+		}
+
+		// 6. 静音检测
+		isSilence := true
+		for _, v := range pcmbuf {
+			if v != 0 {
+				isSilence = false
+				break
+			}
+		}
+
+		if !isSilence {
+			packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, G711Encode(pcmbuf))
+			dev.udpSocket.Write(packet)
+		}
 
 	}
-	fmt.Println()
-	log.Println("发送完成")
 
 }

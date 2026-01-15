@@ -48,15 +48,11 @@ func udpClient() {
 
 	//conn.SetReadBuffer(5000)
 
-	if err != nil {
-		fmt.Println("read from connect failed, err:" + err.Error())
-		os.Exit(1)
-	}
-
 	// /defer dev.udpSocket.Close()
 
 	//启动服务器互联
 
+	go recivePCM()
 	go dev.sendHeartbear()
 	udpProcess(dev.udpSocket)
 

@@ -2,6 +2,8 @@ github.com/ebitengine/oto/v3 v3.3.3 h1:m6RV69OqoXYSWCDsHXN9rc07aDuDstGHtait7HXSM
 github.com/ebitengine/oto/v3 v3.3.3/go.mod h1:MZeb/lwoC4DCOdiTIxYezrURTw7EvK/yF863+tmBI+U=
 github.com/ebitengine/purego v0.8.0 h1:JbqvnEzRvPpxhCJzJJ2y0RbiZ8nyjccVUrSM3q+GvvE=
 github.com/ebitengine/purego v0.8.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203 h1:XBBHcIb256gUJtLmY22n99HaZTz+r2Z51xUPi01m3wg=
+github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203/go.mod h1:E1jcSv8FaEny+OP/5k9UxZVw9YFWGj7eI4KR/iOBqCg=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=

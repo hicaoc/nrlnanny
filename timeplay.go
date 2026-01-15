@@ -121,7 +121,24 @@ func fullRescan(dir string) {
 		duration := playTime.Sub(now)
 
 		timer := time.AfterFunc(duration, func() {
-			sendG711(readWAV(file.Path))
+			data := readWAV(file.Path)
+
+			// pcmbuff := make([][]int, 1)
+
+			for i := 0; i < len(data); i += 500 {
+				if i+500 < len(data) {
+					// 每次创建新的切片结构，防止引用被覆盖
+					chunk := [][]int{data[i : i+500]}
+					timePCM <- chunk
+				}
+
+				percent := (i + 500) * 100 / len(data)
+				fmt.Printf("\r目录音频播放进度: %d%%", percent)
+
+			}
+
+			fmt.Println()
+			log.Println("目录音频播放完成")
 		})
 
 		scheduledTasks[file.Path] = timer
@@ -215,7 +232,24 @@ func handleFileAdded(path string) {
 	// 设置定时器
 	duration := playTime.Sub(now)
 	timer := time.AfterFunc(duration, func() {
-		sendG711(readWAV(path))
+		data := readWAV(path)
+
+		// pcmbuff := make([][]int, 1)
+
+		for i := 0; i < len(data); i += 500 {
+			if i+500 < len(data) {
+				// 每次创建新的切片结构，防止引用被覆盖
+				chunk := [][]int{data[i : i+500]}
+				timePCM <- chunk
+			}
+
+			percent := (i + 500) * 100 / len(data)
+			fmt.Printf("\r目录音频播放进度: %d%%", percent)
+
+		}
+
+		fmt.Println()
+		log.Println("目录音频播放完成")
 	})
 
 	scheduledTasks[path] = timer

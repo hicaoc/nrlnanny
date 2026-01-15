@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -213,14 +214,47 @@ func playNextMusic() {
 		// 解锁以执行播放操作
 		musicstateMu.Unlock()
 
-		// 播放文件
-		log.Printf("🎵 正在播放: %s (ID: %04d)", fileToPlay.Path, fileToPlay.ID)
-
 		data := readWAV(fileToPlay.Path)
+
+		playstatus := true
+
 		if data != nil {
-			sendG711(data)
+
+			// pcmbuff := make([][]int, 1)
+		tag:
+			for i := 0; i < len(data); i += 500 {
+				if i+500 < len(data) {
+					// 每次创建新的切片结构，防止引用被覆盖
+					chunk := [][]int{data[i : i+500]}
+
+					select {
+					case <-nextmusic:
+						break tag
+					case <-pausemusic:
+						playstatus = !playstatus
+					case <-lastmusic:
+						goto tag
+					default:
+					}
+
+					if !playstatus {
+						time.Sleep(time.Second * 1)
+						continue
+					}
+
+					musicPCM <- chunk
+				}
+
+				percent := (i + 500) * 100 / len(data)
+				fmt.Printf("\r🎵 正在播放: %s (ID: %04d)，播放进度: %d%%", fileToPlay.Path, fileToPlay.ID, percent)
+
+			}
+
+			fmt.Println()
+			log.Println("音乐播放完成")
+			//sendG711(data)
 		} else {
-			log.Printf("❌ 读取文件失败，从队列中移除: %s", fileToPlay.Path)
+			log.Printf("❌ 读取音乐文件失败，从队列中移除: %s", fileToPlay.Path)
 			handleMusicFileRemoved(fileToPlay.Path)
 			time.Sleep(1 * time.Second) // 避免失败死循环过快
 		}

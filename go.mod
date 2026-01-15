@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ebitengine/oto/v3 v3.3.3
+	github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-audio/wav v1.1.0
 	github.com/hajimehoshi/go-mp3 v0.3.4
