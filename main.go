@@ -30,6 +30,7 @@ func main() {
 	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
 	go StartRecoder()
+	go MicRun()
 
 	go newplay()
 
