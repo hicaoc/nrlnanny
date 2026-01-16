@@ -235,6 +235,7 @@ func updateScheduleList(tasks map[string]AudioFileInfo) {
 
 func startTUI() {
 	if err := app.Run(); err != nil {
-		panic(err)
+		log.Println("TUI error:", err)
+		return
 	}
 }

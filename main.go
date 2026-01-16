@@ -52,4 +52,6 @@ func main() {
 
 	// Start TUI (Blocking)
 	startTUI()
+
+	select {}
 }

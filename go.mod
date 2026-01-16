@@ -3,7 +3,7 @@ module nrlnanny
 go 1.25.0
 
 require (
-	github.com/ebitengine/oto/v3 v3.3.3
+	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gen2brain/malgo v0.11.23
 	github.com/go-audio/wav v1.1.0
@@ -13,10 +13,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/go-ole/go-ole v1.2.6 // indirect
+require github.com/go-ole/go-ole v1.2.6
 
 require (
-	github.com/ebitengine/purego v0.8.0 // indirect
+	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.13.7
 	github.com/go-audio/audio v1.0.0 // indirect
