@@ -3,8 +3,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
+	"os/exec"
 	"time"
 	"unsafe"
 
@@ -19,6 +21,10 @@ type FilterState struct {
 
 // MicRun 启动麦克风采集 (Windows WASAPI)
 func MicRun() {
+	url := fmt.Sprintf("http://localhost:%s", conf.System.WebPort)
+	log.Printf("🌐 正在自动打开浏览器访问: %s", url)
+	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+
 	if err := runCapture(); err != nil {
 		log.Printf("❌ 麦克风采集失败 (Windows): %v", err)
 	}
@@ -351,11 +357,9 @@ func runCapture() error {
 				// 5. 重采样到 8000Hz
 				resampled := cubicResample(filtered, sourceSampleRate, targetSampleRate, &resamplePhase)
 
-				if resampled != nil {
-					// 转为 []int 并添加到输出缓冲
-					for _, v := range resampled {
-						outputBuffer = append(outputBuffer, int(v))
-					}
+				// 转为 []int 并添加到输出缓冲
+				for _, v := range resampled {
+					outputBuffer = append(outputBuffer, int(v))
 				}
 
 				// 清空累积缓冲区

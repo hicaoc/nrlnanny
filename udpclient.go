@@ -122,13 +122,15 @@ func NRL21parser(nrl *NRL21packet) {
 	case 9: //服务器互联
 
 	case 11: //NRL AT指令
-		log.Printf("NRL AT指令:%v \n", string(nrl.DATA))
+		//log.Printf("NRL AT指令:%v \n", string(nrl.DATA))
 
 		at := decodeAT(nrl.DATA)
 		if at == nil {
-			log.Printf("AT指令错误: %v \n", nrl.DATA)
+			log.Printf("AT指令错误: %v %v \n", string(nrl.DATA), nrl.DATA)
 			return
 		}
+
+		log.Printf("AT指令:%v=%v \n", at.command, at.value)
 
 		switch at.command {
 		case "AT+PLAY_ID":
