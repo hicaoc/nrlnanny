@@ -23,9 +23,11 @@ var (
 	logChan      = make(chan string, 500)
 	uiUpdateChan = make(chan func(), 500)
 
-	displayMu   sync.Mutex
-	statusState string
-	cronState   string
+	displayMu      sync.Mutex
+	statusState    string
+	cronState      string
+	progressState  int
+	isPlayingState bool
 )
 
 // TuiLogger implements io.Writer to redirect logs to the TUI
@@ -33,6 +35,15 @@ type TuiLogger struct{}
 
 func (t *TuiLogger) Write(p []byte) (n int, err error) {
 	msg := string(p)
+
+	// Add to global buffer for web UI
+	logMu.Lock()
+	GlobalLogBuffer = append(GlobalLogBuffer, msg)
+	if len(GlobalLogBuffer) > maxLogLines {
+		GlobalLogBuffer = GlobalLogBuffer[len(GlobalLogBuffer)-maxLogLines:]
+	}
+	logMu.Unlock()
+
 	if app != nil && uiStarted {
 		select {
 		case logChan <- msg:
@@ -214,9 +225,11 @@ func drawMusicList(files []MusicFileInfo, currentID int) {
 	}
 }
 
-func updatePlayStatus(text string) {
+func updatePlayStatus(text string, percent int, playing bool) {
 	displayMu.Lock()
 	statusState = text
+	progressState = percent
+	isPlayingState = playing
 	displayMu.Unlock()
 }
 

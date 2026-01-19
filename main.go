@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,13 @@ var micPCM = make(chan [][]int, 3)
 var nextmusic = make(chan bool, 1)
 var lastmusic = make(chan bool, 1)
 var pausemusic = make(chan bool, 1)
+
+var (
+	GlobalLogBuffer []string
+	logMu           sync.Mutex
+)
+
+const maxLogLines = 100
 
 func main() {
 

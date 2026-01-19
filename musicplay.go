@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-audio/audio"
+	"github.com/go-audio/wav"
 )
 
 var (
@@ -54,8 +56,8 @@ func init() {
 }
 
 type MusicFileInfo struct {
-	Path string
-	ID   int
+	Path string `json:"path"`
+	ID   int    `json:"id"`
 }
 
 // playAudio 启动调度器
@@ -174,6 +176,7 @@ func playNextMusic() {
 			musicstateMu.Unlock()
 			log.Println("🎵 没有可播放的音乐文件，等待中...")
 
+			updatePlayStatus("Idle", 0, false)
 			// 等待新文件通知或超时
 			select {
 			case <-musicUpdateChan:
@@ -279,58 +282,111 @@ func playNextMusic() {
 		// Update TUI Highlight
 		updateMusicList(queue, currentPlayingID)
 
-		data := readWAV(fileToPlay.Path)
+		updateMusicList(queue, currentPlayingID)
+
+		// Streaming read and play
+		f, err := os.Open(fileToPlay.Path)
+		if err != nil {
+			log.Printf("❌ 无法打开音乐文件: %v", err)
+			handleMusicFileRemoved(fileToPlay.Path)
+			continue
+		}
+
+		decoder := wav.NewDecoder(f)
+		if !decoder.IsValidFile() || decoder.Format().NumChannels != 1 || decoder.BitDepth != 16 || decoder.SampleRate != 8000 {
+			log.Printf("❌ 无效或不支持的 WAV 格式 (仅支持 8k/16bit/单声道): %s", fileToPlay.Path)
+			f.Close()
+			handleMusicFileRemoved(fileToPlay.Path)
+			continue
+		}
+
+		// Get total duration for percentage calculation
+		stat, _ := f.Stat()
+		fileSize := stat.Size()
+		// Simple estimation: (File Size - WAV Header ~44 bytes) / (2 bytes per sample)
+		totalSamples := int((fileSize - 44) / 2)
+		if totalSamples <= 0 {
+			totalSamples = 1 // Prevent division by zero
+		}
 
 		playstatus := true
+		buf := &audio.IntBuffer{Data: make([]int, 500), Format: decoder.Format()}
+		processedSamples := 0
+		percent := 0
 
-		if data != nil {
+	tag:
+		for {
+			n, err := decoder.PCMBuffer(buf)
+			if err != nil || n == 0 {
+				break tag
+			}
 
-			// pcmbuff := make([][]int, 1)
-		tag:
-			for i := 0; i < len(data); i += 500 {
-				if i+500 < len(data) {
-					// 每次创建新的切片结构，防止引用被覆盖
-					chunk := [][]int{data[i : i+500]}
+			percent = processedSamples * 100 / totalSamples
+			if percent > 100 {
+				percent = 100
+			}
 
+			// Handle controls
+			select {
+			case <-nextmusic:
+				break tag
+			case <-pausemusic:
+				playstatus = !playstatus
+				// Report state change immediately
+				updatePlayStatus(fmt.Sprintf("%s: %s (ID: %04d) [%d%%]",
+					map[bool]string{true: "Playing", false: "Paused"}[playstatus],
+					filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, playstatus)
+			case <-lastmusic:
+				forcePrevious = true
+				break tag
+			default:
+			}
+
+			if !playstatus {
+				time.Sleep(time.Millisecond * 100)
+				// We don't continue because we still have the chunk in 'buf'.
+				// But PCMBuffer already read it. We need to wait until playstatus is true.
+				for !playstatus {
 					select {
 					case <-nextmusic:
 						break tag
 					case <-pausemusic:
 						playstatus = !playstatus
+						// Report state change immediately
+						updatePlayStatus(fmt.Sprintf("%s: %s (ID: %04d) [%d%%]",
+							map[bool]string{true: "Playing", false: "Paused"}[playstatus],
+							filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, playstatus)
 					case <-lastmusic:
 						forcePrevious = true
 						break tag
 					default:
+						time.Sleep(time.Millisecond * 100)
 					}
-
-					if !playstatus {
-						time.Sleep(time.Second * 1)
-						continue
-					}
-
-					musicPCM <- chunk
 				}
-
-				// Throttle updates: only if percent changes or every 10 chunks
-				percent := (i + 500) * 100 / len(data)
-				// Only update if i % 5000 == 0 (every 10 chunks ~ 0.6s) to reduce TUI load
-				if i%5000 == 0 {
-					statusText := fmt.Sprintf("Playing: %s (ID: %04d) [%d%%]", fileToPlay.Path, fileToPlay.ID, percent)
-					updatePlayStatus(statusText)
-				}
-
 			}
 
-			// fmt.Println()
-			//log.Println("音乐播放完成")
-			//sendG711(data)
-		} else {
-			log.Printf("❌ 读取音乐文件失败，从队列中移除: %s", fileToPlay.Path)
-			handleMusicFileRemoved(fileToPlay.Path)
-			time.Sleep(1 * time.Second) // 避免失败死循环过快
+			// Send chunk to PCM channel
+			// Note: data is in buf.Data[:n]
+			chunkData := make([]int, n)
+			copy(chunkData, buf.Data[:n])
+			musicPCM <- [][]int{chunkData}
+
+			processedSamples += n
+
+			// Throttle status updates
+			if processedSamples%8000 == 0 { // Every ~1 second
+				statusText := fmt.Sprintf("Playing: %s (ID: %04d) [%d%%]", filepath.Base(fileToPlay.Path), fileToPlay.ID, percent)
+				updatePlayStatus(statusText, percent, playstatus)
+			}
+			// Check for next track or exit
+			select {
+			default:
+			}
 		}
+		f.Close()
 
 		// 稍微暂停一下，避免连续播放太紧凑
+		time.Sleep(1 * time.Second)
 		time.Sleep(1 * time.Second)
 	}
 }

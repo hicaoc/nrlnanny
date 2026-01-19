@@ -134,7 +134,7 @@ func fullRescan(dir string) {
 
 				percent := (i + 500) * 100 / len(data)
 				// fmt.Printf("\r目录音频播放进度: %d%%", percent)
-				updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", file.Path, percent))
+				updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", file.Path, percent), percent, true)
 
 			}
 
@@ -247,7 +247,7 @@ func handleFileAdded(path string) {
 
 			percent := (i + 500) * 100 / len(data)
 			// fmt.Printf("\r目录音频播放进度: %d%%", percent)
-			updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent))
+			updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent), percent, true)
 
 		}
 

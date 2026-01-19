@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -120,13 +122,108 @@ func NRL21parser(nrl *NRL21packet) {
 	case 9: //服务器互联
 
 	case 11: //NRL AT指令
-		//fmt.Println("NRL AT指令:", string(nrl.DATA))
+		log.Printf("NRL AT指令:%v \n", string(nrl.DATA))
+
+		at := decodeAT(nrl.DATA)
+		if at == nil {
+			log.Printf("AT指令错误: %v \n", nrl.DATA)
+			return
+		}
+
+		switch at.command {
+		case "AT+PLAY_ID":
+			id, err := strconv.Atoi(at.value)
+			if err != nil {
+				return
+			}
+			PlayMusicByID(id)
+		case "AT+PAUSE":
+			select {
+			case pausemusic <- true:
+			default:
+			}
+		case "AT+NEXT":
+			select {
+			case nextmusic <- true:
+			default:
+			}
+		case "AT+PREW":
+			select {
+			case lastmusic <- true:
+			default:
+			}
+		case "AT+VOLUME":
+
+			log.Println("AT+VOLUME", at.value)
+
+			value, err := strconv.Atoi(at.value)
+			if err != nil {
+				log.Println("AT+VOLUME", err)
+				return
+			}
+
+			if value < 0 || value > 100 {
+				log.Println("AT+VOLUME", value)
+				return
+			}
+			conf.System.Volume = float64(value) / 100
+			updateVolumeDisplay()
+			log.Println("VOLUME", conf.System.Volume)
+
+		}
+
+		volume := fmt.Sprintf("%d", int(conf.System.Volume*100))
+		atcommand := encodeAT([]string{"AT+PLAY_ID=1", "AT+PREW=1", "AT+NEXT=1", "AT+PAUSE=1", "AT+VOLUME=" + volume})
+
+		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 11, 250, calculateCpuId(conf.System.Callsign+string(conf.System.SSID)), atcommand)
+		dev.udpSocket.Write(packet)
 
 	default:
 		log.Println("unknow data:", nrl.Type, nrl)
 		//conn.WriteToUDP(packet, n.Addr)
 
 	}
+
+}
+
+type atCommand struct {
+	command string
+	value   string
+}
+
+func decodeAT(data []byte) *atCommand {
+	if len(data) < 2 {
+		return nil
+	}
+
+	if data[0] != 0x01 {
+		return nil
+	}
+
+	str := strings.Split(string(data[1:]), "=")
+
+	if len(str) != 2 {
+		return nil
+	}
+
+	at := atCommand{}
+
+	at.command = str[0]
+
+	at.value = strings.TrimSuffix(str[1], "\r\n")
+
+	return &at
+
+}
+
+func encodeAT(atlist []string) []byte {
+	at := make([]byte, 0)
+	at = append(at, 0x02)
+	at = append(at, "NRLNANNY V2.0\r\n"...)
+	at = append(at, strings.Join(atlist, "\r\n")...)
+	at = append(at, "\r\n"...)
+
+	return at
 
 }
 

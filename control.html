@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRL Nanny - Premium Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #08090b;
+            --bg-surface: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --accent-glow: #00d2ff;
+            --accent-primary: #3a7bd5;
+            --accent-success: #00ff88;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, #111827, var(--bg-deep));
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .glass {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            padding: 24px;
+            transition: var(--transition);
+        }
+
+        /* Header */
+        header.glass {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #fff, var(--text-dim));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 12px var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Main Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Panels */
+        h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin: 0 0 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Music Controls */
+        .player-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .control-btns {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .btn-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-glass);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+
+        .btn-circle:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+
+        .btn-main {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow));
+            font-size: 1.6rem;
+            border: none;
+        }
+
+        .btn-main:hover {
+            box-shadow: 0 0 30px rgba(58, 123, 213, 0.4);
+        }
+
+        /* Volume */
+        .volume-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px 20px;
+            border-radius: 30px;
+        }
+
+        input[type=range] {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        /* Playlist */
+        .playlist-card {
+            margin-top: 10px;
+        }
+
+        .scroll-area {
+            max-height: 320px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .song-item {
+            padding: 14px 18px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 6px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+        }
+
+        .song-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .song-item.active {
+            background: rgba(58, 123, 213, 0.1);
+            border-color: rgba(58, 123, 213, 0.3);
+        }
+
+        .song-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2;
+        }
+
+        .song-idx {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .song-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(to right, rgba(58, 123, 213, 0.2), rgba(0, 210, 255, 0.2));
+            z-index: 1;
+            transition: width 0.4s ease;
+        }
+
+        /* Status Cards */
+        .status-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .info-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 18px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .item-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .item-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Terminal */
+        .terminal-panel {
+            grid-column: 1 / -1;
+        }
+
+        .terminal-box {
+            background: #000;
+            border-radius: 10px;
+            padding: 20px;
+            height: 240px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            border: 1px solid #222;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            border-left: 2px solid #333;
+            padding-left: 10px;
+        }
+
+        /* Links */
+        .nav-link {
+            color: var(--accent-glow);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .btn-large {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            text-decoration: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: var(--transition);
+            margin-top: 20px;
+        }
+
+        .btn-large:hover {
+            border-color: var(--accent-glow);
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="glass">
+            <h1>NRL NANNY <span style="font-weight:300; opacity:0.6;">DASHBOARD</span></h1>
+            <div style="display: flex; align-items: center; gap: 24px;">
+                <a href="/play" class="nav-link">📂 BROWSER</a>
+                <div><span class="status-dot"></span><span
+                        style="font-size:0.75rem; letter-spacing:1px; color:var(--accent-success);">SYSTEM READY</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Controller -->
+            <section class="glass player-controls">
+                <h2><span style="color:var(--accent-glow);">●</span> Center Stage</h2>
+
+                <div class="control-btns">
+                    <button class="btn-circle" onclick="control('prev')" title="Previous">⏮</button>
+                    <button class="btn-circle btn-main" id="btn-pause" onclick="control('pause')"
+                        title="Play/Pause">⏸</button>
+                    <button class="btn-circle" onclick="control('next')" title="Next">⏭</button>
+                </div>
+
+                <div class="volume-bar">
+                    <span id="volume-icon">🔊</span>
+                    <input type="range" id="volume-slider" min="0" max="2 * 100" value="100"
+                        oninput="updateVolume(this.value)">
+                    <span id="volume-text"
+                        style="font-family:'JetBrains Mono'; min-width:45px; text-align:right;">100%</span>
+                </div>
+
+                <div class="playlist-card">
+                    <h2>Playlist</h2>
+                    <div class="scroll-area" id="playlist">
+                        <!-- Songs Here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Status -->
+            <aside class="status-panel">
+                <div class="glass" style="height: 100%; display: flex; flex-direction: column; gap: 24px;">
+                    <h2>Statistics</h2>
+                    <div class="status-grid">
+                        <div class="info-card">
+                            <span class="item-label">Next Beacon</span>
+                            <span class="item-value" id="cron-info">--:--</span>
+                        </div>
+                        <div class="info-card">
+                            <span class="item-label">Current Task</span>
+                            <span class="item-value" id="play-status"
+                                style="color:var(--accent-glow);">Scanning...</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: auto;">
+                        <a href="/play" class="btn-large">
+                            <span>VIEW RECORDINGS</span>
+                            <span>→</span>
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Logs -->
+            <section class="glass terminal-panel">
+                <h2>Real-time Feed</h2>
+                <div class="terminal-box" id="terminal">
+                    <!-- Logs Here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        let currentPlayingID = -1;
+
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                document.getElementById('cron-info').innerText = data.cron || 'Waiting';
+                document.getElementById('play-status').innerText = data.status || 'Idle';
+                document.getElementById('volume-text').innerText = data.volume + '%';
+                document.getElementById('volume-slider').value = data.volume;
+
+                const volIcon = document.getElementById('volume-icon');
+                if (data.volume === 0) volIcon.innerText = '🔇';
+                else if (data.volume < 70) volIcon.innerText = '🔉';
+                else volIcon.innerText = '🔊';
+
+                document.getElementById('btn-pause').innerHTML = data.playing ? '⏸' : '▶';
+
+                const progressEl = document.getElementById('active-progress');
+                if (progressEl) progressEl.style.width = (data.progress || 0) + '%';
+            } catch (e) { console.error("Sync error", e); }
+        }
+
+        async function updateMusic() {
+            try {
+                const res = await fetch('/api/music');
+                const data = await res.json();
+                const listEl = document.getElementById('playlist');
+
+                if (listEl.dataset.playingId != data.playingID || listEl.children.length === 0) {
+                    listEl.dataset.playingId = data.playingID;
+                    listEl.innerHTML = data.files.map(f => `
+                        <div class="song-item ${f.id === data.playingID ? 'active' : ''}" onclick="control('play_id', ${f.id})">
+                            ${f.id === data.playingID ? '<div class="progress-bar" id="active-progress"></div>' : ''}
+                            <div class="song-info">
+                                <span class="song-idx">${f.id.toString().padStart(4, '0')}</span>
+                                <span class="song-name">${f.path.split(/[\\/]/).pop()}</span>
+                            </div>
+                            <span style="font-size:0.7rem; opacity:0.5; z-index:2;">${f.id === data.playingID ? '✦' : ''}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { }
+        }
+
+        async function updateLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const logs = await res.json();
+                const box = document.getElementById('terminal');
+                const isBottom = box.scrollHeight - box.clientHeight <= box.scrollTop + 10;
+                box.innerHTML = logs.map(l => `<div class="log-entry">${l}</div>`).join('');
+                if (isBottom) box.scrollTop = box.scrollHeight;
+            } catch (e) { }
+        }
+
+        async function control(action, id = 0, value = 0) {
+            await fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, id, value })
+            });
+            updateStatus();
+        }
+
+        function updateVolume(val) {
+            document.getElementById('volume-text').innerText = val + '%';
+            control('volume', 0, val / 100);
+        }
+
+        updateStatus(); updateMusic(); updateLogs();
+        setInterval(updateStatus, 1000);
+        setInterval(updateMusic, 3000);
+        setInterval(updateLogs, 3000);
+    </script>
+</body>
+
+</html>

@@ -67,7 +67,7 @@ func startcron() {
 func (o sendvoice) Run() {
 
 	log.Printf("\n读取信标文件，准备播放信标...%s\n", conf.System.AudioFile)
-	updatePlayStatus("Beacon Playing...")
+	updatePlayStatus("Beacon Playing...", 0, true)
 
 	switch strings.ToLower(filepath.Ext(conf.System.AudioFile)) {
 	case ".wav":

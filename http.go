@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -12,6 +13,9 @@ import (
 	"strings"
 	"time"
 )
+
+//go:embed control.html play.html
+var webAssets embed.FS
 
 type AudioFile struct {
 	Name      string `json:"name"`
@@ -33,10 +37,17 @@ func parseTimeFromFilename(filename string) (time.Time, error) {
 }
 
 func play() {
-	http.HandleFunc("/", serveIndex)
+	http.HandleFunc("/", serveIndex)         // Dashboard
+	http.HandleFunc("/play", servePlay)      // Original recordings browser
 	http.HandleFunc("/dirs", listDirs)       // 获取所有日期目录
 	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
 	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
+
+	// Web API
+	http.HandleFunc("/api/status", apiStatus)
+	http.HandleFunc("/api/music", apiMusic)
+	http.HandleFunc("/api/logs", apiLogs)
+	http.HandleFunc("/api/control", apiControl)
 
 	log.Printf("服务器启动中：http://0.0.0.0:%s\n", conf.System.WebPort)
 	log.Fatal(http.ListenAndServe(":"+conf.System.WebPort, nil))
@@ -47,7 +58,110 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, "./play.html")
+	content, err := webAssets.ReadFile("control.html")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(content)
+}
+
+func servePlay(w http.ResponseWriter, r *http.Request) {
+	content, err := webAssets.ReadFile("play.html")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(content)
+}
+
+func apiStatus(w http.ResponseWriter, r *http.Request) {
+	displayMu.Lock()
+	s := statusState
+	c := cronState
+	p := progressState
+	ip := isPlayingState
+	displayMu.Unlock()
+
+	data := map[string]any{
+		"volume":   int(conf.System.Volume * 100),
+		"status":   s,
+		"cron":     c,
+		"progress": p,
+		"playing":  ip,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func apiMusic(w http.ResponseWriter, r *http.Request) {
+	musicstateMu.Lock()
+	files := currentQueue.files
+	playingID := currentPlayingID
+	musicstateMu.Unlock()
+
+	data := map[string]any{
+		"files":     files,
+		"playingID": playingID,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func apiLogs(w http.ResponseWriter, r *http.Request) {
+	logMu.Lock()
+	logs := make([]string, len(GlobalLogBuffer))
+	copy(logs, GlobalLogBuffer)
+	logMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logs)
+}
+
+func apiControl(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Action string  `json:"action"`
+		Value  float64 `json:"value"`
+		ID     int     `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	switch req.Action {
+	case "play_id":
+		PlayMusicByID(req.ID)
+	case "pause":
+		select {
+		case pausemusic <- true:
+		default:
+		}
+	case "next":
+		select {
+		case nextmusic <- true:
+		default:
+		}
+	case "prev":
+		select {
+		case lastmusic <- true:
+		default:
+		}
+	case "volume":
+		if req.Value >= 0 && req.Value <= 2 {
+			conf.System.Volume = req.Value
+			updateVolumeDisplay()
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // 列出所有日期目录（如 2025-10-13）
