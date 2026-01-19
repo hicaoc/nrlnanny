@@ -126,15 +126,17 @@ func fullRescanMusic(dir string) {
 
 	// 加锁操作状态
 	musicstateMu.Lock()
-	defer musicstateMu.Unlock()
 
 	// 应用新 trackedFiles
 	trackedMusicFiles = newTracked
 
 	// 构建播放队列
 	buildMusicQueue(files)
+	musicstateMu.Unlock()
 
-	log.Printf("✅ 音乐文件全量扫描完成. 跟踪 %d 个文件.", len(trackedMusicFiles))
+	// Update TUI (outside lock)
+	updateMusicList(currentQueue.files, currentPlayingID)
+	log.Printf("✅ 音乐文件全量扫描完成. 跟踪 %d 个文件.", len(newTracked))
 }
 
 func buildMusicQueue(files []MusicFileInfo) {
@@ -147,19 +149,7 @@ func buildMusicQueue(files []MusicFileInfo) {
 	currentQueue.files = files
 	currentPlayingID = -1
 
-	// 启动播放器 (如果尚未启动，这里假设 playNextMusic 是单独启动的 goroutine，或者由调用者启动)
-	// 注意：buildMusicQueue 被 fullRescanMusic 调用，而 fullRescanMusic 被 playMusic 调用。
-	// playMusic 只调用一次 fullRescanMusic，然后启动 playNextMusic。
-	// 为了避免重复启动 playNextMusic，我们这里只更新队列。
-	// 实际上 playNextMusic 是一个死循环，它会读取 currentQueue。
-	// 所以这里不需要再次 go playNextMusic()，除非是第一次。
-	// 但为了简单起见，我们在 playMusic 中并没有显式调用 playNextMusic。
-	// 让我们检查一下原代码... 原代码在 buildMusicQueue 里调用了 go playNextMusic()。
-	// 这会导致每次全量扫描都启动一个新的播放循环，这是个 BUG！
-	// 我们应该只在 playMusic 中启动一次 playNextMusic。
-
-	// Update TUI
-	updateMusicList(currentQueue.files, currentPlayingID)
+	log.Printf("✅ 音乐播放队列已更新 (文件数: %d)", len(files))
 }
 
 // 播放下一个音乐
@@ -421,7 +411,11 @@ func handleMusicFileAdded(path string) {
 		return currentQueue.files[i].ID < currentQueue.files[j].ID
 	})
 
-	updateMusicList(currentQueue.files, currentPlayingID)
+	files := currentQueue.files
+	playingID := currentPlayingID
+	musicstateMu.Unlock()
+
+	updateMusicList(files, playingID)
 
 	// 通知播放器有新文件（非阻塞发送）
 	select {
@@ -448,7 +442,10 @@ func handleMusicFileRemoved(path string) {
 		}
 	}
 	currentQueue.files = newQueue
-	updateMusicList(currentQueue.files, currentPlayingID)
+	playingID := currentPlayingID
+	musicstateMu.Unlock()
+
+	updateMusicList(newQueue, playingID)
 }
 
 // startDailyFullRescanMusic 每天 00:00 执行一次全量重扫

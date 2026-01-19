@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -18,6 +20,12 @@ var (
 	cronView     *tview.TextView
 	volumeView   *tview.TextView
 	uiStarted    bool
+	logChan      = make(chan string, 500)
+	uiUpdateChan = make(chan func(), 500)
+
+	displayMu   sync.Mutex
+	statusState string
+	cronState   string
 )
 
 // TuiLogger implements io.Writer to redirect logs to the TUI
@@ -25,12 +33,12 @@ type TuiLogger struct{}
 
 func (t *TuiLogger) Write(p []byte) (n int, err error) {
 	msg := string(p)
-	// If app is not running or hasn't started, fallback to console
 	if app != nil && uiStarted {
-		app.QueueUpdateDraw(func() {
-			fmt.Fprint(logView, msg)
-			logView.ScrollToEnd()
-		})
+		select {
+		case logChan <- msg:
+		default:
+			// If buffer is full, drop log to avoid hanging the system
+		}
 	} else {
 		fmt.Fprint(os.Stderr, msg)
 	}
@@ -75,7 +83,8 @@ func initTUI() {
 	// 4. Log Area (Bottom)
 	logView = tview.NewTextView().
 		SetDynamicColors(true).
-		SetScrollable(true)
+		SetScrollable(true).
+		SetMaxLines(1000)
 	logView.SetTitle(" System Logs ").SetBorder(true)
 
 	// Layout Composition
@@ -178,9 +187,11 @@ func updateMusicList(files []MusicFileInfo, currentID int) {
 		drawMusicList(files, currentID)
 		return
 	}
-	app.QueueUpdateDraw(func() {
-		drawMusicList(files, currentID)
-	})
+	select {
+	case uiUpdateChan <- func() { drawMusicList(files, currentID) }:
+	default:
+		// If queue is full, skip this update to avoid blocking
+	}
 }
 
 func drawMusicList(files []MusicFileInfo, currentID int) {
@@ -204,29 +215,15 @@ func drawMusicList(files []MusicFileInfo, currentID int) {
 }
 
 func updatePlayStatus(text string) {
-	if statusView == nil {
-		return
-	}
-	if !uiStarted {
-		statusView.SetText(text)
-		return
-	}
-	app.QueueUpdateDraw(func() {
-		statusView.SetText(text)
-	})
+	displayMu.Lock()
+	statusState = text
+	displayMu.Unlock()
 }
 
 func updateCronInfo(info string) {
-	if cronView == nil {
-		return
-	}
-	if !uiStarted {
-		cronView.SetText(info)
-		return
-	}
-	app.QueueUpdateDraw(func() {
-		cronView.SetText(info)
-	})
+	displayMu.Lock()
+	cronState = info
+	displayMu.Unlock()
 }
 
 func updateScheduleList(tasks map[string]AudioFileInfo) {
@@ -237,9 +234,10 @@ func updateScheduleList(tasks map[string]AudioFileInfo) {
 		drawScheduleList(tasks)
 		return
 	}
-	app.QueueUpdateDraw(func() {
-		drawScheduleList(tasks)
-	})
+	select {
+	case uiUpdateChan <- func() { drawScheduleList(tasks) }:
+	default:
+	}
 }
 
 func drawScheduleList(tasks map[string]AudioFileInfo) {
@@ -250,10 +248,55 @@ func drawScheduleList(tasks map[string]AudioFileInfo) {
 }
 
 func startTUI() {
-	// Set log output to TUI just before running
+	// Set log output to TUI
 	log.SetOutput(&TuiLogger{})
 
 	uiStarted = true
+
+	// Buffered Log Consumer
+	go func() {
+		for msg := range logChan {
+			if app != nil && uiStarted {
+				app.QueueUpdate(func() {
+					fmt.Fprint(logView, msg)
+					logView.ScrollToEnd()
+				})
+			}
+		}
+	}()
+
+	// UI Update Consumer
+	go func() {
+		for update := range uiUpdateChan {
+			if app != nil && uiStarted {
+				app.QueueUpdate(update)
+			}
+		}
+	}()
+
+	// UI State Refresher (paints latest status/cron every 200ms)
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if app != nil && uiStarted {
+				displayMu.Lock()
+				s := statusState
+				c := cronState
+				displayMu.Unlock()
+
+				app.QueueUpdateDraw(func() {
+					if statusView != nil {
+						statusView.SetText(s)
+					}
+					if cronView != nil {
+						cronView.SetText(c)
+					}
+				})
+			}
+		}
+	}()
+
 	if err := app.Run(); err != nil {
 		uiStarted = false
 		// TUI failed to start (e.g. non-interactive environment)

@@ -97,7 +97,6 @@ func (r *Recorder) ProcessPCMData(data []byte) {
 		// 写入数据
 		r.currentBuffer.Write(data)
 		r.lastDataTime = time.Now()
-		fmt.Print(".")
 
 		// 检查是否需要结束当前录音并保存
 		r.checkAndSaveRecord()
@@ -127,7 +126,6 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 
 	// 确保录音时长大于最小记录时长
 	if r.currentBuffer.Len() < 32000 || duration < minRecordDuration {
-		fmt.Println()
 		log.Printf("[%s] 录音时长不足 %.2f 秒，或者数据太少不保存。\n", r.speakerCallsign, minRecordDuration.Seconds())
 		r.currentBuffer.Reset()
 		return
@@ -147,7 +145,6 @@ func (r *Recorder) saveCurrentRecord(duration time.Duration) {
 	filename := fmt.Sprintf("%s_%s_%ds.wav", r.speakerCallsign, startTimeStr, durationSeconds)
 	filePath := filepath.Join(dayOutputDir, filename)
 
-	fmt.Println()
 	log.Printf("[%s] 保存录音到: %s (时长:%d秒)\n", r.speakerCallsign, filePath, durationSeconds)
 
 	// 创建WAV文件
