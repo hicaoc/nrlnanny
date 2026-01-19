@@ -75,14 +75,11 @@ func (o sendvoice) Run() {
 		wav := readWAV(conf.System.AudioFile)
 		// pcmbuff := make([][]int, 1) // 移除外部定义，避免并发竞争
 
-		for {
-			for i := 0; i < len(wav); i += 500 {
-				if i+500 < len(wav) {
-					// 每次创建新的切片结构，防止引用被覆盖
-					data := [][]int{wav[i : i+500]}
-					cronPCM <- data
-				}
-
+		for i := 0; i < len(wav); i += 500 {
+			if i+500 < len(wav) {
+				// 每次创建新的切片结构，防止引用被覆盖
+				data := [][]int{wav[i : i+500]}
+				cronPCM <- data
 			}
 		}
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -16,25 +17,22 @@ var (
 	statusView   *tview.TextView
 	cronView     *tview.TextView
 	volumeView   *tview.TextView
+	uiStarted    bool
 )
 
 // TuiLogger implements io.Writer to redirect logs to the TUI
 type TuiLogger struct{}
 
 func (t *TuiLogger) Write(p []byte) (n int, err error) {
-	// Copy the data because p might be reused
 	msg := string(p)
-	if app != nil {
-		// Run in goroutine to avoid deadlock if called from main thread (event loop)
-		// and the update channel is full.
-		go app.QueueUpdateDraw(func() {
+	// If app is not running or hasn't started, fallback to console
+	if app != nil && uiStarted {
+		app.QueueUpdateDraw(func() {
 			fmt.Fprint(logView, msg)
-			// Scroll to end
-			// Check if we are auto-scrolling
 			logView.ScrollToEnd()
 		})
 	} else {
-		fmt.Print(msg) // Fallback if app not ready
+		fmt.Fprint(os.Stderr, msg)
 	}
 	return len(p), nil
 }
@@ -77,10 +75,7 @@ func initTUI() {
 	// 4. Log Area (Bottom)
 	logView = tview.NewTextView().
 		SetDynamicColors(true).
-		SetScrollable(true).
-		SetChangedFunc(func() {
-			app.Draw()
-		})
+		SetScrollable(true)
 	logView.SetTitle(" System Logs ").SetBorder(true)
 
 	// Layout Composition
@@ -163,8 +158,8 @@ func initTUI() {
 		return event
 	})
 
-	// Redirect Log
-	log.SetOutput(&TuiLogger{})
+	// app.SetRoot(flex, true).EnableMouse(true)
+	// Keybindings...
 }
 
 func updateVolumeDisplay() {
@@ -176,32 +171,44 @@ func updateVolumeDisplay() {
 
 // updateMusicList safely updates the music list in the UI
 func updateMusicList(files []MusicFileInfo, currentID int) {
-	if app == nil || musicList == nil {
+	if musicList == nil {
+		return
+	}
+	if !uiStarted {
+		drawMusicList(files, currentID)
 		return
 	}
 	app.QueueUpdateDraw(func() {
-		musicList.Clear()
-		for i, f := range files {
-			title := fmt.Sprintf("%04d %s", f.ID, f.Path)
-			if f.ID == currentID {
-				title = "[green]▶ " + title + "[white]"
-			}
-			// Clone f to avoid closure issues
-			fileInfo := f
-			musicList.AddItem(title, "", 0, func() {
-				// On Select (Enter) - force play
-				log.Printf("Selected: %s", fileInfo.Path)
-				PlayMusicByID(fileInfo.ID)
-			})
-			if f.ID == currentID {
-				musicList.SetCurrentItem(i)
-			}
-		}
+		drawMusicList(files, currentID)
 	})
 }
 
+func drawMusicList(files []MusicFileInfo, currentID int) {
+	musicList.Clear()
+	for i, f := range files {
+		title := fmt.Sprintf("%04d %s", f.ID, f.Path)
+		if f.ID == currentID {
+			title = "[green]▶ " + title + "[white]"
+		}
+		// Clone f to avoid closure issues
+		fileInfo := f
+		musicList.AddItem(title, "", 0, func() {
+			// On Select (Enter) - force play
+			log.Printf("Selected: %s", fileInfo.Path)
+			PlayMusicByID(fileInfo.ID)
+		})
+		if f.ID == currentID {
+			musicList.SetCurrentItem(i)
+		}
+	}
+}
+
 func updatePlayStatus(text string) {
-	if app == nil || statusView == nil {
+	if statusView == nil {
+		return
+	}
+	if !uiStarted {
+		statusView.SetText(text)
 		return
 	}
 	app.QueueUpdateDraw(func() {
@@ -210,7 +217,11 @@ func updatePlayStatus(text string) {
 }
 
 func updateCronInfo(info string) {
-	if app == nil || cronView == nil {
+	if cronView == nil {
+		return
+	}
+	if !uiStarted {
+		cronView.SetText(info)
 		return
 	}
 	app.QueueUpdateDraw(func() {
@@ -219,23 +230,41 @@ func updateCronInfo(info string) {
 }
 
 func updateScheduleList(tasks map[string]AudioFileInfo) {
-	if app == nil || scheduleList == nil {
+	if scheduleList == nil {
+		return
+	}
+	if !uiStarted {
+		drawScheduleList(tasks)
 		return
 	}
 	app.QueueUpdateDraw(func() {
-		scheduleList.Clear()
-		// Sort map by key (path) or time if possible.
-		// Since map is unordered, let's just list them for now.
-		// Ideally we convert to slice and sort.
-		for _, info := range tasks {
-			scheduleList.AddItem(fmt.Sprintf("[%02d:%02d] %s", info.Hour, info.Minute, info.Path), "", 0, nil)
-		}
+		drawScheduleList(tasks)
 	})
 }
 
+func drawScheduleList(tasks map[string]AudioFileInfo) {
+	scheduleList.Clear()
+	for _, info := range tasks {
+		scheduleList.AddItem(fmt.Sprintf("[%02d:%02d] %s", info.Hour, info.Minute, info.Path), "", 0, nil)
+	}
+}
+
 func startTUI() {
+	// Set log output to TUI just before running
+	log.SetOutput(&TuiLogger{})
+
+	uiStarted = true
 	if err := app.Run(); err != nil {
-		log.Println("TUI error:", err)
+		uiStarted = false
+		// TUI failed to start (e.g. non-interactive environment)
+		log.SetOutput(os.Stderr)
+		app = nil // Clear app to signal TuiLogger should use console
+		log.Printf("⚠️  TUI failed to start: %v", err)
+		log.Println("Background services are still running in console mode.")
 		return
 	}
+
+	// If TUI exits normally, restore standard logging
+	log.SetOutput(os.Stderr)
+	log.Println("TUI exited normaly.")
 }
