@@ -456,7 +456,6 @@ func handleMusicFileAdded(path string) {
 	}
 
 	musicstateMu.Lock()
-	defer musicstateMu.Unlock()
 
 	// 更新跟踪列表
 	trackedMusicFiles[path] = fileInfo
@@ -485,7 +484,6 @@ func handleMusicFileRemoved(path string) {
 	log.Printf("🔴 文件删除: %s", path)
 
 	musicstateMu.Lock()
-	defer musicstateMu.Unlock()
 
 	// 从 tracked 中移除
 	delete(trackedMusicFiles, path)
