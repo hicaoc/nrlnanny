@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -154,6 +153,42 @@ func NRL21parser(nrl *NRL21packet) {
 			case lastmusic <- true:
 			default:
 			}
+
+		case "AT+DUCK_SCALE":
+			value, err := strconv.Atoi(at.value)
+			if err != nil {
+				log.Println("AT+DUCK_SCALE", err)
+				return
+			}
+
+			if value < 0 || value > 100 {
+				log.Println("AT+DUCK_SCALE", value)
+				return
+			}
+			conf.System.DuckScale = float64(value) / 100
+			updateVolumeDisplay()
+			log.Println("DUCK_SCALE", conf.System.DuckScale)
+
+		case "AT+DUCK_MIC":
+
+			if at.value == "ON" {
+				conf.System.DuckMicPCM = true
+			} else {
+				conf.System.DuckMicPCM = false
+			}
+
+			log.Println("DUCK_MIC", conf.System.DuckMicPCM)
+
+		case "AT+DUCK_MUSIC":
+
+			if at.value == "ON" {
+				conf.System.DuckMusicPCM = true
+			} else {
+				conf.System.DuckMusicPCM = false
+			}
+
+			log.Println("DUCK_MUSIC", conf.System.DuckMusicPCM)
+
 		case "AT+VOLUME":
 
 			log.Println("AT+VOLUME", at.value)
@@ -175,7 +210,16 @@ func NRL21parser(nrl *NRL21packet) {
 		}
 
 		volume := fmt.Sprintf("%d", int(conf.System.Volume*100))
-		atcommand := encodeAT([]string{"AT+PLAY_ID=1", "AT+PREW=1", "AT+NEXT=1", "AT+PAUSE=1", "AT+VOLUME=" + volume})
+		duckmic := "OFF"
+		if conf.System.DuckMicPCM {
+			duckmic = "ON"
+		}
+		duckmusic := "OFF"
+		if conf.System.DuckMusicPCM {
+			duckmusic = "ON"
+		}
+		duckscale := fmt.Sprintf("%d", int(conf.System.DuckScale*100))
+		atcommand := encodeAT([]string{"AT+PLAY_ID=1", "AT+PREW=1", "AT+NEXT=1", "AT+PAUSE=1", "AT+VOLUME=" + volume, "AT+DUCK_MIC=" + duckmic, "AT+DUCK_MUSIC=" + duckmusic, "AT+DUCK_SCALE=" + duckscale})
 
 		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 11, 250, calculateCpuId(conf.System.Callsign+string(conf.System.SSID)), atcommand)
 		dev.udpSocket.Write(packet)
@@ -185,47 +229,6 @@ func NRL21parser(nrl *NRL21packet) {
 		//conn.WriteToUDP(packet, n.Addr)
 
 	}
-
-}
-
-type atCommand struct {
-	command string
-	value   string
-}
-
-func decodeAT(data []byte) *atCommand {
-	if len(data) < 2 {
-		return nil
-	}
-
-	if data[0] != 0x01 {
-		return nil
-	}
-
-	str := strings.Split(string(data[1:]), "=")
-
-	if len(str) != 2 {
-		return nil
-	}
-
-	at := atCommand{}
-
-	at.command = str[0]
-
-	at.value = strings.TrimSuffix(str[1], "\r\n")
-
-	return &at
-
-}
-
-func encodeAT(atlist []string) []byte {
-	at := make([]byte, 0)
-	at = append(at, 0x02)
-	at = append(at, "NRLNANNY V2.0\r\n"...)
-	at = append(at, strings.Join(atlist, "\r\n")...)
-	at = append(at, "\r\n"...)
-
-	return at
 
 }
 
