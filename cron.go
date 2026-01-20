@@ -92,11 +92,14 @@ func (o sendvoice) Run() {
 }
 
 func recivePCM() {
-
 	ticket := time.NewTicker(time.Microsecond * 62500)
 	defer ticket.Stop()
 
 	pcmbuf := make([]int, 500)
+
+	// 标记是否有麦克风或信标活动
+	var hasBeaconActivity bool
+	volumeScale := 1.0
 
 	for range ticket.C {
 		// 1. 每一帧开始前必须重置缓冲区为静音，防止残留
@@ -104,9 +107,12 @@ func recivePCM() {
 			pcmbuf[i] = 0
 		}
 
-		// 2. 混音: cronPCM (改为 += 混音模式)
+		hasBeaconActivity = false
+
+		// 2. 混音: cronPCM (信标)
 		select {
 		case wav := <-cronPCM:
+			hasBeaconActivity = true
 			for i, v := range wav[0] {
 				if i < len(pcmbuf) {
 					pcmbuf[i] += v
@@ -118,6 +124,7 @@ func recivePCM() {
 		// 3. 混音: timePCM
 		select {
 		case wav := <-timePCM:
+			hasBeaconActivity = true
 			for i, v := range wav[0] {
 				if i < len(pcmbuf) {
 					pcmbuf[i] += v
@@ -129,9 +136,17 @@ func recivePCM() {
 		// 4. 混音: musicPCM
 		select {
 		case wav := <-musicPCM:
+			// 计算音乐音量缩放因子
+			// 如果有麦克风或信标活动，降低音乐音量
+			volumeScale = 1.0
+			if hasBeaconActivity && conf.System.DuckMusicPCM {
+				volumeScale = conf.System.DuckScale // 降低一个维度
+			}
+
 			for i, v := range wav[0] {
 				if i < len(pcmbuf) {
-					pcmbuf[i] += v
+					// 应用音量缩放
+					pcmbuf[i] += int(float64(v) * volumeScale)
 				}
 			}
 		default:
@@ -140,9 +155,13 @@ func recivePCM() {
 		// 5. 混音: micPCM
 		select {
 		case wav := <-micPCM:
+			volumeScale = 1.0
+			if hasBeaconActivity && conf.System.DuckMicPCM {
+				volumeScale = conf.System.DuckScale // 降低一个维度
+			}
 			for i, v := range wav[0] {
 				if i < len(pcmbuf) {
-					pcmbuf[i] += v
+					pcmbuf[i] += int(float64(v) * volumeScale)
 				}
 			}
 		default:
@@ -163,5 +182,4 @@ func recivePCM() {
 		}
 
 	}
-
 }

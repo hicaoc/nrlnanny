@@ -21,11 +21,11 @@ hostlist='nrlptt.com bh4tdv.nrlptt.com ba1gm.nrlptt.com bd4vki.nrlptt.com  ah.nr
 
 #hostlist='bh4tdv.nrlptt.com'
 
-hostlist="ptt.nrlptt.com js.nrlptt.com"
+hostlist="js.nrlptt.com"
 
-#scp nrlnanny root@192.168.35.40:nrlnanny/
+scp nrlnanny root@192.168.35.40:nrlnanny/
 #scp play.html root@192.168.35.40:nrlnanny/
-scp control.html root@192.168.35.40:nrlnanny/
+#scp control.html root@192.168.35.40:nrlnanny/
 
 time=`date "+%Y%m%d%H%M%S"`
 

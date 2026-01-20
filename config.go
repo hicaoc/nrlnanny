@@ -16,7 +16,10 @@ type config struct {
 		Port            string  `yaml:"Port" json:"port"`
 		Callsign        string  `yaml:"Callsign" json:"callsign"`
 		SSID            byte    `yaml:"SSID" json:"ssid"`
-		Volume          float64 `yaml:"Volume" json:"volume"` // 音量
+		Volume          float64 `yaml:"Volume" json:"volume"`               // 音量
+		DuckScale       float64 `yaml:"DuckScale" json:"duck_scale"`        // 音量降低比例
+		DuckMicPCM      bool    `yaml:"DuckMicPCM" json:"duck_mic_pcm"`     // 是否降低麦克风音量
+		DuckMusicPCM    bool    `yaml:"DuckMusicPCM" json:"duck_music_pcm"` // 是否降低音乐音量
 		AudioFile       string  `yaml:"AudioFile" json:"audio_file"`
 		AudioFilePath   string  `yaml:"AudioFilePath" json:"audio_file_Path"`
 		MusicFilePath   string  `yaml:"MusicFilePath" json:"music_file_Path"`

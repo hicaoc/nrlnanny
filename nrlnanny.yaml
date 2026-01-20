@@ -2,10 +2,13 @@ System:
  # NRLNanny配置
     Server: "nrlptt.com"  # 服务器地址
     Port: "60050"  # 服务器端口
-    Callsign: "RECORD"  # 虚拟设备呼号
+    Callsign: "XX4XX"  # 虚拟设备呼号
     SSID: 250  # 虚拟设备SSID
     music_file_Path: "./music"
-    Volume: 0.1 # 音量
+    Volume: 1.0 # 音量
+    DuckScale: 0.1 # 音量降低比例
+    DuckMicPCM: false # 是否降低麦克风音量
+    DuckMusicPCM: true # 是否降低音乐音量
     AudioFilePath : "./audio" # wav音频文件路径   
     RecoderFilePath: "./recoder"  # 录音文件保存路径
     CronString: "* * * * *"  # 播放周期配置，linux cron格式
