@@ -348,6 +348,71 @@
             border-color: var(--accent-glow);
             background: rgba(255, 255, 255, 0.05);
         }
+
+        /* Switch Styling */
+        .switch-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .switch-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(22px);
+        }
+
+        .ducking-panel {
+            margin-top: 10px;
+        }
     </style>
 </head>
 
@@ -407,6 +472,33 @@
                         </div>
                     </div>
 
+                    <div class="ducking-panel">
+                        <h2>Ducking Controls</h2>
+                        <div class="switch-container">
+                            <span class="switch-label">Music Ducking</span>
+                            <label class="switch">
+                                <input type="checkbox" id="duck-music-toggle" onclick="control('duck_music_pcm')">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="switch-container">
+                            <span class="switch-label">Mic Ducking</span>
+                            <label class="switch">
+                                <input type="checkbox" id="duck-mic-toggle" onclick="control('duck_mic_pcm')">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <span class="item-label" style="display:block; margin-bottom:8px;">Duck Scale</span>
+                            <div class="volume-bar" style="padding: 10px 15px;">
+                                <input type="range" id="duck-scale-slider" min="0" max="100" value="10"
+                                    oninput="updateDuckScale(this.value)">
+                                <span id="duck-scale-text"
+                                    style="font-family:'JetBrains Mono'; min-width:40px; text-align:right; font-size:0.85rem;">10%</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div style="margin-top: auto;">
                         <a href="/play" class="btn-large">
                             <span>VIEW RECORDINGS</span>
@@ -438,6 +530,11 @@
                 document.getElementById('play-status').innerText = data.status || 'Idle';
                 document.getElementById('volume-text').innerText = data.volume + '%';
                 document.getElementById('volume-slider').value = data.volume;
+
+                document.getElementById('duck-music-toggle').checked = data.duck_music_pcm;
+                document.getElementById('duck-mic-toggle').checked = data.duck_mic_pcm;
+                document.getElementById('duck-scale-text').innerText = data.duck_scale + '%';
+                document.getElementById('duck-scale-slider').value = data.duck_scale;
 
                 const volIcon = document.getElementById('volume-icon');
                 if (data.volume === 0) volIcon.innerText = '🔇';
@@ -496,6 +593,11 @@
         function updateVolume(val) {
             document.getElementById('volume-text').innerText = val + '%';
             control('volume', 0, val / 100);
+        }
+
+        function updateDuckScale(val) {
+            document.getElementById('duck-scale-text').innerText = val + '%';
+            control('duck_scale', 0, val / 100);
         }
 
         updateStatus(); updateMusic(); updateLogs();

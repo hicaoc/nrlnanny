@@ -4,7 +4,7 @@ System:
     Port: "60050"  # 服务器端口
     Callsign: "XX4XX"  # 虚拟设备呼号
     SSID: 250  # 虚拟设备SSID
-    music_file_Path: "./music"
+    MusicFilePath: "./music"
     Volume: 1.0 # 音量
     DuckScale: 0.1 # 音量降低比例
     DuckMicPCM: false # 是否降低麦克风音量

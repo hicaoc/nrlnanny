@@ -86,11 +86,14 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 	displayMu.Unlock()
 
 	data := map[string]any{
-		"volume":   int(conf.System.Volume * 100),
-		"status":   s,
-		"cron":     c,
-		"progress": p,
-		"playing":  ip,
+		"volume":         int(conf.System.Volume * 100),
+		"status":         s,
+		"cron":           c,
+		"progress":       p,
+		"playing":        ip,
+		"duck_scale":     int(conf.System.DuckScale * 100),
+		"duck_mic_pcm":   conf.System.DuckMicPCM,
+		"duck_music_pcm": conf.System.DuckMusicPCM,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
@@ -159,6 +162,17 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 			conf.System.Volume = req.Value
 			updateVolumeDisplay()
 		}
+	case "duck_scale":
+		if req.Value >= 0 && req.Value <= 1 {
+			conf.System.DuckScale = req.Value
+			log.Printf("Duck Scale updated to: %.2f", req.Value)
+		}
+	case "duck_mic_pcm":
+		conf.System.DuckMicPCM = !conf.System.DuckMicPCM
+		log.Printf("Duck Mic PCM updated to: %v", conf.System.DuckMicPCM)
+	case "duck_music_pcm":
+		conf.System.DuckMusicPCM = !conf.System.DuckMusicPCM
+		log.Printf("Duck Music PCM updated to: %v", conf.System.DuckMusicPCM)
 	}
 
 	w.WriteHeader(http.StatusOK)
