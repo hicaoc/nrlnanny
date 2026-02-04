@@ -284,7 +284,7 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 
 // 文本消息
 func DisplayMsg(nrl *NRL21packet) {
-	log.Println("收到文本消息:", string(nrl.DATA))
+	log.Printf("收到文本消息:%v-%v:%v", nrl.CallSign, nrl.SSID, string(nrl.DATA))
 
 }
 

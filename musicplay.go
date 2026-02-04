@@ -310,7 +310,7 @@ func playNextMusic() {
 		}
 
 		playstatus := true
-		buf := &audio.IntBuffer{Data: make([]int, 500), Format: decoder.Format()}
+		buf := &audio.IntBuffer{Data: make([]int, 160), Format: decoder.Format()}
 		processedSamples := 0
 		percent := 0
 

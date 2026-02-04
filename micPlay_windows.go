@@ -366,15 +366,15 @@ func runCapture() error {
 				rawAccumBuffer = rawAccumBuffer[:0]
 			}
 
-			// 6. 分块发送（500 点/帧，约 62.5ms @ 8000Hz）
-			for len(outputBuffer) >= 500 {
-				chunk := make([]int, 500)
-				copy(chunk, outputBuffer[:500])
+			// 6. 分块发送（160 点/帧，约 20ms @ 8000Hz）
+			for len(outputBuffer) >= 160 {
+				chunk := make([]int, 160)
+				copy(chunk, outputBuffer[:160])
 				select {
 				case micPCM <- [][]int{chunk}:
 				default:
 				}
-				outputBuffer = outputBuffer[500:]
+				outputBuffer = outputBuffer[160:]
 			}
 		}
 

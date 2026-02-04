@@ -20,8 +20,8 @@ var (
 	cronView     *tview.TextView
 	volumeView   *tview.TextView
 	uiStarted    bool
-	logChan      = make(chan string, 500)
-	uiUpdateChan = make(chan func(), 500)
+	logChan      = make(chan string, 160)
+	uiUpdateChan = make(chan func(), 160)
 
 	displayMu      sync.Mutex
 	statusState    string

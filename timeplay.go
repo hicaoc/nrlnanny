@@ -125,14 +125,14 @@ func fullRescan(dir string) {
 
 			// pcmbuff := make([][]int, 1)
 
-			for i := 0; i < len(data); i += 500 {
-				if i+500 < len(data) {
+			for i := 0; i < len(data); i += 160 {
+				if i+160 < len(data) {
 					// 每次创建新的切片结构，防止引用被覆盖
-					chunk := [][]int{data[i : i+500]}
+					chunk := [][]int{data[i : i+160]}
 					timePCM <- chunk
 				}
 
-				percent := (i + 500) * 100 / len(data)
+				percent := (i + 160) * 100 / len(data)
 				// fmt.Printf("\r目录音频播放进度: %d%%", percent)
 				updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", file.Path, percent), percent, true)
 
@@ -238,14 +238,14 @@ func handleFileAdded(path string) {
 
 		// pcmbuff := make([][]int, 1)
 
-		for i := 0; i < len(data); i += 500 {
-			if i+500 < len(data) {
+		for i := 0; i < len(data); i += 160 {
+			if i+160 < len(data) {
 				// 每次创建新的切片结构，防止引用被覆盖
-				chunk := [][]int{data[i : i+500]}
+				chunk := [][]int{data[i : i+160]}
 				timePCM <- chunk
 			}
 
-			percent := (i + 500) * 100 / len(data)
+			percent := (i + 160) * 100 / len(data)
 			// fmt.Printf("\r目录音频播放进度: %d%%", percent)
 			updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent), percent, true)
 

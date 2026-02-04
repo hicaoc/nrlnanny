@@ -75,10 +75,10 @@ func (o sendvoice) Run() {
 		wav := readWAV(conf.System.AudioFile)
 		// pcmbuff := make([][]int, 1) // 移除外部定义，避免并发竞争
 
-		for i := 0; i < len(wav); i += 500 {
-			if i+500 < len(wav) {
+		for i := 0; i < len(wav); i += 160 {
+			if i+160 < len(wav) {
 				// 每次创建新的切片结构，防止引用被覆盖
-				data := [][]int{wav[i : i+500]}
+				data := [][]int{wav[i : i+160]}
 				cronPCM <- data
 			}
 		}
@@ -92,10 +92,10 @@ func (o sendvoice) Run() {
 }
 
 func recivePCM() {
-	ticket := time.NewTicker(time.Microsecond * 62500)
+	ticket := time.NewTicker(time.Microsecond * 20000) // 20ms
 	defer ticket.Stop()
 
-	pcmbuf := make([]int, 500)
+	pcmbuf := make([]int, 160)
 
 	// 标记是否有麦克风或信标活动
 	var hasBeaconActivity bool
