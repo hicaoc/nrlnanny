@@ -13,9 +13,10 @@ import (
 //var userlist = make(map[string]userinfo, 1000) //key 用户id
 
 var (
-	lastcallsign string
-	lastssid     byte
-	lasttime     time.Time
+	lastcallsign   string
+	lastssid       byte
+	lasttime       time.Time
+	voiceEndCancel chan struct{}
 )
 
 var dev *deviceInfo
@@ -237,26 +238,40 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 	if nrl.CallSign != lastcallsign || nrl.SSID != lastssid || time.Since(lasttime) > time.Second*2 {
 		// fmt.Println()
 		log.Printf("[%s-%d] 新语音呼叫\n", nrl.CallSign, nrl.SSID)
+
+		// 取消上一个语音结束检测goroutine
+		if voiceEndCancel != nil {
+			close(voiceEndCancel)
+		}
+
+		if lastcallsign != "" {
+			liveHub.NotifyVoiceEnd(lastcallsign, lastssid)
+		}
+
 		recorder.Stop()
 		recorder = NewRecorder(fmt.Sprintf("%s-%d", nrl.CallSign, nrl.SSID))
 
+		liveHub.NotifyVoiceStart(nrl.CallSign, nrl.SSID)
+
+		cancelCh := make(chan struct{})
+		voiceEndCancel = cancelCh
+
 		go func() {
+			cs := nrl.CallSign
+			ssid := nrl.SSID
 			for {
-				time.Sleep(time.Second * 2)
-				if time.Since(lasttime) > time.Second*2 {
-					recorder.Stop()
+				select {
+				case <-cancelCh:
+					return
+				case <-time.After(time.Second * 1):
+					if time.Since(lasttime) > time.Second*2 {
+						recorder.Stop()
+						liveHub.NotifyVoiceEnd(cs, ssid)
+						return
+					}
 				}
-
 			}
-
 		}()
-
-		// go func() {
-		// 	<-time.After(3 * time.Second)
-		// 	if time.Since(lasttime) > time.Second*2 {
-		// 		recorder.Stop()
-		// 	}
-		// }()
 
 	}
 
@@ -276,9 +291,13 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 
 	//log.Println("play voice", nrl.CallSign, nrl.SSID)
 
-	streamReader.WriteChunk(chunkBytes)
+	if streamReader != nil {
+		streamReader.WriteChunk(chunkBytes)
+	}
 
 	recorder.ProcessPCMData(chunkBytes)
+
+	liveHub.BroadcastAudio(nrl.CallSign, nrl.SSID, chunkBytes)
 
 }
 

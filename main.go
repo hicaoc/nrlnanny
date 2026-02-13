@@ -40,7 +40,7 @@ func main() {
 	go StartRecoder()
 	go MicRun()
 
-	go newplay()
+	// go newplay() // 本地监听已通过浏览器实现，不再需要本地音频输出
 
 	time.Sleep(time.Second * 1)
 

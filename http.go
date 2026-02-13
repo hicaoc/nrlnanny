@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//go:embed control.html play.html
+//go:embed control.html play.html live.html
 var webAssets embed.FS
 
 type AudioFile struct {
@@ -39,6 +39,8 @@ func parseTimeFromFilename(filename string) (time.Time, error) {
 func play() {
 	http.HandleFunc("/", serveIndex)         // Dashboard
 	http.HandleFunc("/play", servePlay)      // Original recordings browser
+	http.HandleFunc("/live", serveLive)      // Live broadcast page
+	http.HandleFunc("/ws/live", handleLiveWS) // WebSocket endpoint
 	http.HandleFunc("/dirs", listDirs)       // 获取所有日期目录
 	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
 	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
@@ -59,6 +61,16 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	content, err := webAssets.ReadFile("control.html")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(content)
+}
+
+func serveLive(w http.ResponseWriter, r *http.Request) {
+	content, err := webAssets.ReadFile("live.html")
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return

@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRL Nanny - Live Broadcast</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #08090b;
+            --bg-surface: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --accent-glow: #00d2ff;
+            --accent-primary: #3a7bd5;
+            --accent-success: #00ff88;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .glass {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Header */
+        header.glass {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        h1 {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #fff, var(--text-dim));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            white-space: nowrap;
+        }
+
+        .nav-link {
+            color: var(--accent-glow);
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--accent-success);
+            box-shadow: 0 0 12px var(--accent-success);
+        }
+
+        .status-dot.disconnected {
+            background: #ff4444;
+            box-shadow: 0 0 12px #ff4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        h2 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+        }
+
+        /* Main Layout */
+        .live-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 0.6fr;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .live-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+        }
+
+        /* ===== LEFT PANEL: Waveform + Callsign ===== */
+        .left-panel {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+
+        #waveform-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Scan-line overlay */
+        .left-panel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.06) 2px,
+                rgba(0, 0, 0, 0.06) 4px
+            );
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .floating-callsign {
+            position: relative;
+            z-index: 3;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(0, 210, 255, 0.6), 0 0 60px rgba(0, 210, 255, 0.3);
+            letter-spacing: clamp(2px, 0.5vw, 6px);
+            user-select: none;
+            transition: text-shadow 0.1s ease;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 90%;
+            word-break: break-all;
+        }
+
+        .floating-callsign .ssid-tag {
+            font-size: inherit;
+            color: #ff9f43;
+        }
+
+        .floating-callsign.idle {
+            font-size: clamp(1.2rem, 2.5vw, 2rem);
+            color: var(--text-dim);
+            text-shadow: none;
+            letter-spacing: 3px;
+        }
+
+        .floating-callsign.idle .ssid-tag {
+            display: none;
+        }
+
+        .topic-input {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            right: 0;
+            z-index: 3;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .topic-input input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Outfit', sans-serif;
+            text-align: center;
+            outline: none;
+            transition: var(--transition);
+            width: 80%;
+            max-width: 700px;
+        }
+
+        .topic-input .topic-main {
+            font-size: clamp(1.6rem, 4vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: 3px;
+            padding: 6px 20px;
+            text-transform: uppercase;
+        }
+
+        .topic-input .topic-sub {
+            font-size: clamp(0.9rem, 2vw, 1.3rem);
+            font-weight: 400;
+            letter-spacing: 1px;
+            padding: 4px 20px;
+            color: rgba(255, 255, 255, 0.55);
+            text-transform: none;
+        }
+
+        .topic-input input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .topic-input input:focus {
+            border-bottom-color: var(--accent-glow);
+        }
+
+        /* ===== RIGHT PANEL ===== */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* VU Meter */
+        .vu-panel {
+            padding: 16px;
+            flex: 0 0 auto;
+            max-height: 45%;
+        }
+
+        .vu-wrapper {
+            width: 100%;
+            position: relative;
+            padding-bottom: 55%;
+        }
+
+        #vu-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* History */
+        .history-panel {
+            padding: 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .history-scroll {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+
+        .history-entry {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            border-left: 2px solid rgba(0, 210, 255, 0.3);
+            transition: var(--transition);
+        }
+
+        .history-entry:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .history-time {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            min-width: 75px;
+        }
+
+        .history-callsign {
+            color: var(--accent-glow);
+            font-weight: 700;
+            flex: 1;
+        }
+
+        .history-duration {
+            color: #ff9f43;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .history-empty {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 40px 0;
+            opacity: 0.5;
+        }
+
+        /* Start overlay */
+        .start-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .start-overlay.hidden {
+            display: none;
+        }
+
+        .start-btn {
+            padding: 20px 50px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: white;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow));
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.3);
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 60px rgba(0, 210, 255, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="glass">
+            <h1>NRL NANNY <span style="font-weight:300; opacity:0.6;">LIVE</span></h1>
+            <div style="display:flex; align-items:center; gap:20px;">
+                <a href="/" class="nav-link">DASHBOARD</a>
+                <a href="/play" class="nav-link">BROWSER</a>
+                <div>
+                    <span class="status-dot disconnected" id="ws-dot"></span>
+                    <span id="ws-status" style="font-size:0.7rem; letter-spacing:1px; color:var(--text-dim);">CONNECTING</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="live-grid">
+            <!-- Left: Waveform + Callsign -->
+            <section class="glass left-panel">
+                <canvas id="waveform-canvas"></canvas>
+                <div class="topic-input">
+                    <input type="text" class="topic-main" id="topic-title" placeholder="BROADCAST TOPIC" maxlength="30">
+                    <input type="text" class="topic-sub" id="topic-subtitle" placeholder="subtitle..." maxlength="60">
+                </div>
+                <div class="floating-callsign idle" id="callsign-display">STANDBY</div>
+            </section>
+
+            <!-- Right: VU + History -->
+            <aside class="right-panel">
+                <div class="glass vu-panel">
+                    <h2>VU Meter</h2>
+                    <div class="vu-wrapper">
+                        <canvas id="vu-canvas"></canvas>
+                    </div>
+                </div>
+                <div class="glass history-panel">
+                    <h2>Comm Log</h2>
+                    <div class="history-scroll" id="history-log">
+                        <div class="history-empty">Waiting for transmissions...</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Audio autoplay overlay -->
+    <div class="start-overlay" id="start-overlay">
+        <button class="start-btn" id="start-btn">START LISTENING</button>
+    </div>
+
+    <script>
+        // ===== State =====
+        let audioCtx = null;
+        let playerNode = null;
+        let ws = null;
+        let currentCallsign = '';
+        let currentSSID = 0;
+        let isVoiceActive = false;
+        let voiceStartTime = null;
+        let historyLog = [];
+        let currentRMS = 0;
+        let targetRMS = 0;
+        let peakLevel = 0;
+        let peakHoldTime = 0;
+        let waveformSamples = new Float32Array(320);
+        let waveformHistory = [];
+        const MAX_WAVE_HISTORY = 60;
+        let animFrameId = null;
+
+        // ===== Audio Setup =====
+        const workletCode = `
+class PCMPlayerProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.buffer = new Float32Array(0);
+        this.port.onmessage = (e) => {
+            const incoming = e.data;
+            const newBuf = new Float32Array(this.buffer.length + incoming.length);
+            newBuf.set(this.buffer);
+            newBuf.set(incoming, this.buffer.length);
+            this.buffer = newBuf;
+            if (this.buffer.length > 16000) {
+                this.buffer = this.buffer.slice(this.buffer.length - 16000);
+            }
+        };
+    }
+    process(inputs, outputs) {
+        const output = outputs[0][0];
+        if (!output) return true;
+        if (this.buffer.length >= output.length) {
+            output.set(this.buffer.subarray(0, output.length));
+            this.buffer = this.buffer.slice(output.length);
+        } else {
+            output.fill(0);
+            if (this.buffer.length > 0) {
+                output.set(this.buffer);
+                this.buffer = new Float32Array(0);
+            }
+        }
+        return true;
+    }
+}
+registerProcessor('pcm-player', PCMPlayerProcessor);
+`;
+
+        async function initAudio() {
+            audioCtx = new AudioContext({ sampleRate: 8000 });
+            const blob = new Blob([workletCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            await audioCtx.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url);
+            playerNode = new AudioWorkletNode(audioCtx, 'pcm-player');
+            playerNode.connect(audioCtx.destination);
+        }
+
+        // ===== Start Button =====
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            await initAudio();
+            document.getElementById('start-overlay').classList.add('hidden');
+            connectWS();
+            startRenderLoop();
+        });
+
+        // ===== WebSocket =====
+        function connectWS() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${location.host}/ws/live`);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                document.getElementById('ws-dot').className = 'status-dot connected';
+                document.getElementById('ws-status').textContent = 'CONNECTED';
+                document.getElementById('ws-status').style.color = 'var(--accent-success)';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('ws-dot').className = 'status-dot disconnected';
+                document.getElementById('ws-status').textContent = 'RECONNECTING';
+                document.getElementById('ws-status').style.color = '#ff4444';
+                setTimeout(connectWS, 2000);
+            };
+
+            ws.onerror = () => ws.close();
+
+            ws.onmessage = (event) => {
+                const data = new Uint8Array(event.data);
+                if (data.length < 8) return;
+
+                const msgType = data[0];
+                const csBytes = data.slice(1, 7);
+                const callsign = new TextDecoder().decode(csBytes).replace(/\0/g, '').trim();
+                const ssid = data[7];
+
+                switch (msgType) {
+                    case 0x01: // AUDIO_DATA
+                        handleAudioData(data.slice(8), callsign, ssid);
+                        break;
+                    case 0x02: // VOICE_START
+                        onVoiceStart(callsign, ssid);
+                        break;
+                    case 0x03: // VOICE_END
+                        onVoiceEnd(callsign, ssid);
+                        break;
+                }
+            };
+        }
+
+        function handleAudioData(pcmBytes, callsign, ssid) {
+            if (pcmBytes.length < 2) return;
+
+            const samples = new Float32Array(pcmBytes.length / 2);
+            const view = new DataView(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength);
+            for (let i = 0; i < samples.length; i++) {
+                samples[i] = view.getInt16(i * 2, true) / 32768.0;
+            }
+
+            // Send to audio worklet
+            if (playerNode) {
+                playerNode.port.postMessage(samples);
+            }
+
+            // Update visualization state
+            waveformSamples = samples;
+            waveformHistory.push(samples);
+            if (waveformHistory.length > MAX_WAVE_HISTORY) waveformHistory.shift();
+
+            // Calculate RMS
+            let sum = 0;
+            for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+            targetRMS = Math.sqrt(sum / samples.length);
+
+            currentCallsign = callsign;
+            currentSSID = ssid;
+        }
+
+        function onVoiceStart(callsign, ssid) {
+            isVoiceActive = true;
+            currentCallsign = callsign;
+            currentSSID = ssid;
+            voiceStartTime = new Date();
+            waveformHistory = [];
+
+            const el = document.getElementById('callsign-display');
+            el.classList.remove('idle');
+            el.innerHTML = `${callsign}<span class="ssid-tag">-${ssid}</span>`;
+        }
+
+        function onVoiceEnd(callsign, ssid) {
+            if (voiceStartTime) {
+                const endTime = new Date();
+                const durSec = Math.round((endTime - voiceStartTime) / 1000);
+                const min = Math.floor(durSec / 60);
+                const sec = durSec % 60;
+                const durStr = min > 0 ? `${min}m${sec.toString().padStart(2,'0')}s` : `${sec}s`;
+                historyLog.unshift({
+                    time: endTime.toLocaleTimeString('zh-CN', { hour12: false }),
+                    callsign: callsign + '-' + ssid,
+                    duration: durStr
+                });
+                if (historyLog.length > 100) historyLog.pop();
+                renderHistory();
+            }
+
+            isVoiceActive = false;
+            voiceStartTime = null;
+            targetRMS = 0;
+            waveformSamples = new Float32Array(0);
+            waveformHistory = [];
+
+            const el = document.getElementById('callsign-display');
+            el.classList.add('idle');
+            el.innerHTML = 'STANDBY';
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-log');
+            if (historyLog.length === 0) {
+                container.innerHTML = '<div class="history-empty">Waiting for transmissions...</div>';
+                return;
+            }
+            container.innerHTML = historyLog.map(e =>
+                `<div class="history-entry">
+                    <span class="history-time">${e.time}</span>
+                    <span class="history-callsign">${e.callsign}</span>
+                    <span class="history-duration">${e.duration}</span>
+                </div>`
+            ).join('');
+        }
+
+        // ===== Rendering =====
+        function startRenderLoop() {
+            const waveCanvas = document.getElementById('waveform-canvas');
+            const vuCanvas = document.getElementById('vu-canvas');
+
+            function resizeAll() {
+                resizeCanvas(waveCanvas);
+                resizeCanvas(vuCanvas);
+            }
+            resizeAll();
+
+            const ro = new ResizeObserver(() => resizeAll());
+            ro.observe(waveCanvas.parentElement);
+            ro.observe(vuCanvas.parentElement);
+
+            function frame() {
+                // Smooth RMS
+                currentRMS += (targetRMS - currentRMS) * 0.3;
+
+                // Peak hold
+                if (currentRMS > peakLevel) {
+                    peakLevel = currentRMS;
+                    peakHoldTime = 30;
+                } else if (peakHoldTime > 0) {
+                    peakHoldTime--;
+                } else {
+                    peakLevel *= 0.95;
+                }
+
+                drawWaveform(waveCanvas);
+                drawVUMeter(vuCanvas);
+                updateCallsignVibration();
+
+                animFrameId = requestAnimationFrame(frame);
+            }
+            frame();
+        }
+
+        function resizeCanvas(canvas) {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            canvas.getContext('2d').scale(dpr, dpr);
+        }
+
+        // ===== Waveform Drawing =====
+        function drawWaveform(canvas) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.width / dpr;
+            const H = canvas.height / dpr;
+
+            // Dark background with subtle radial gradient
+            ctx.clearRect(0, 0, W, H);
+            const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+            bgGrad.addColorStop(0, 'rgba(0, 30, 60, 0.4)');
+            bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.04)';
+            ctx.lineWidth = 1;
+            for (let y = 0; y < H; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+            }
+            for (let x = 0; x < W; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+            }
+
+            // Center line
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.1)';
+            ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+
+            if (waveformHistory.length === 0 && !isVoiceActive) return;
+
+            // Draw history waveforms (fading trails)
+            for (let h = 0; h < waveformHistory.length; h++) {
+                const age = waveformHistory.length - h;
+                const alpha = Math.max(0.02, 0.15 - age * 0.003);
+                const samples = waveformHistory[h];
+                drawSingleWave(ctx, W, H, samples, `rgba(0, 210, 255, ${alpha})`, 1);
+            }
+
+            // Draw current waveform with glow
+            if (waveformSamples.length > 0 && isVoiceActive) {
+                // Outer glow
+                ctx.save();
+                ctx.shadowColor = '#00d2ff';
+                ctx.shadowBlur = 20;
+                drawSingleWave(ctx, W, H, waveformSamples, 'rgba(0, 210, 255, 0.8)', 2.5);
+                ctx.restore();
+
+                // Inner bright line
+                drawSingleWave(ctx, W, H, waveformSamples, '#00e5ff', 1.5);
+
+                // Fill under
+                ctx.beginPath();
+                const step = W / waveformSamples.length;
+                for (let i = 0; i < waveformSamples.length; i++) {
+                    const x = i * step;
+                    const y = (1 - waveformSamples[i]) * H / 2;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.lineTo(W, H);
+                ctx.lineTo(0, H);
+                ctx.closePath();
+                const fillGrad = ctx.createLinearGradient(0, H * 0.3, 0, H);
+                fillGrad.addColorStop(0, 'rgba(0, 210, 255, 0.12)');
+                fillGrad.addColorStop(1, 'rgba(0, 210, 255, 0.0)');
+                ctx.fillStyle = fillGrad;
+                ctx.fill();
+            }
+
+            // Frequency bars at bottom (ambient decoration)
+            if (isVoiceActive) {
+                const barCount = 48;
+                const barW = W / barCount;
+                for (let i = 0; i < barCount; i++) {
+                    const sampleIdx = Math.floor(i / barCount * waveformSamples.length);
+                    const val = Math.abs(waveformSamples[sampleIdx] || 0);
+                    const barH = val * H * 0.25;
+                    const alpha = 0.15 + val * 0.4;
+                    ctx.fillStyle = `rgba(0, 210, 255, ${alpha})`;
+                    ctx.fillRect(i * barW + 1, H - barH, barW - 2, barH);
+                }
+            }
+        }
+
+        function drawSingleWave(ctx, W, H, samples, color, lineWidth) {
+            if (!samples || samples.length === 0) return;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.beginPath();
+            const step = W / samples.length;
+            for (let i = 0; i < samples.length; i++) {
+                const x = i * step;
+                const y = (1 - samples[i]) * H / 2;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // ===== VU Meter Drawing =====
+        function drawVUMeter(canvas) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.width / dpr;
+            const H = canvas.height / dpr;
+            const centerX = W / 2;
+            const centerY = H * 0.88;
+            const radius = Math.min(W * 0.42, H * 0.75);
+
+            ctx.clearRect(0, 0, W, H);
+
+            // Arc background segments
+            const segments = 40;
+            for (let i = 0; i < segments; i++) {
+                const t = i / segments;
+                const angle = Math.PI + t * Math.PI;
+                const nextAngle = Math.PI + (i + 1) / segments * Math.PI;
+
+                let r, g, b;
+                if (t < 0.6) {
+                    r = 0; g = 255; b = 136;
+                } else if (t < 0.8) {
+                    const p = (t - 0.6) / 0.2;
+                    r = Math.floor(255 * p); g = Math.floor(255 - 35 * p); b = Math.floor(136 - 136 * p);
+                } else {
+                    const p = (t - 0.8) / 0.2;
+                    r = 255; g = Math.floor(220 - 220 * p); b = 0;
+                }
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, angle, nextAngle + 0.02);
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            // Lit segments
+            const level = Math.min(currentRMS * 4, 1.0);
+            const litSegments = Math.floor(level * segments);
+            for (let i = 0; i < litSegments; i++) {
+                const t = i / segments;
+                const angle = Math.PI + t * Math.PI;
+                const nextAngle = Math.PI + (i + 1) / segments * Math.PI;
+
+                let r, g, b;
+                if (t < 0.6) {
+                    r = 0; g = 255; b = 136;
+                } else if (t < 0.8) {
+                    const p = (t - 0.6) / 0.2;
+                    r = Math.floor(255 * p); g = Math.floor(255 - 35 * p); b = Math.floor(136 - 136 * p);
+                } else {
+                    const p = (t - 0.8) / 0.2;
+                    r = 255; g = Math.floor(220 - 220 * p); b = 0;
+                }
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, angle, nextAngle + 0.02);
+                ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.shadowColor = `rgb(${r}, ${g}, ${b})`;
+                ctx.shadowBlur = 12;
+                ctx.lineWidth = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Tick marks
+            for (let i = 0; i <= 20; i++) {
+                const angle = Math.PI + (i / 20) * Math.PI;
+                const innerR = radius - 22;
+                const outerR = radius + 14;
+                const isMajor = i % 5 === 0;
+                ctx.beginPath();
+                ctx.moveTo(centerX + Math.cos(angle) * innerR, centerY + Math.sin(angle) * innerR);
+                ctx.lineTo(centerX + Math.cos(angle) * (isMajor ? outerR : outerR - 6), centerY + Math.sin(angle) * (isMajor ? outerR : outerR - 6));
+                ctx.strokeStyle = isMajor ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = isMajor ? 2 : 1;
+                ctx.stroke();
+            }
+
+            // dB labels
+            const dbLabels = ['-20', '-10', '-5', '0', '+3'];
+            const dbPositions = [0, 0.25, 0.5, 0.75, 1.0];
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.textAlign = 'center';
+            for (let i = 0; i < dbLabels.length; i++) {
+                const angle = Math.PI + dbPositions[i] * Math.PI;
+                const labelR = radius + 28;
+                ctx.fillText(dbLabels[i], centerX + Math.cos(angle) * labelR, centerY + Math.sin(angle) * labelR);
+            }
+
+            // Needle
+            const needleAngle = Math.PI + Math.min(level, 1.0) * Math.PI;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(
+                centerX + Math.cos(needleAngle) * (radius - 8),
+                centerY + Math.sin(needleAngle) * (radius - 8)
+            );
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Peak hold indicator
+            if (peakLevel > 0.01) {
+                const peakAngle = Math.PI + Math.min(peakLevel * 4, 1.0) * Math.PI;
+                const peakX = centerX + Math.cos(peakAngle) * radius;
+                const peakY = centerY + Math.sin(peakAngle) * radius;
+                ctx.beginPath();
+                ctx.arc(peakX, peakY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff4444';
+                ctx.shadowColor = '#ff4444';
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Center dot
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // VU label
+            ctx.font = 'bold 14px JetBrains Mono';
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.textAlign = 'center';
+            ctx.fillText('VU', centerX, centerY - radius * 0.3);
+        }
+
+        // ===== Callsign Vibration =====
+        function updateCallsignVibration() {
+            const el = document.getElementById('callsign-display');
+            if (!isVoiceActive) {
+                el.style.transform = 'translate(0, 0)';
+                return;
+            }
+
+            const intensity = Math.min(currentRMS * 30, 5);
+            const dx = (Math.random() - 0.5) * intensity * 2;
+            const dy = (Math.random() - 0.5) * intensity;
+
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            el.style.textShadow = `0 0 ${20 + currentRMS * 80}px rgba(0, 210, 255, ${0.4 + currentRMS * 2}), 0 0 ${40 + currentRMS * 120}px rgba(0, 210, 255, ${0.2 + currentRMS})`;
+        }
+    </script>
+</body>
+
+</html>

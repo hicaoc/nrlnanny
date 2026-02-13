@@ -15,6 +15,8 @@ require (
 
 require github.com/go-ole/go-ole v1.2.6
 
+require github.com/gorilla/websocket v1.5.3 // indirect
+
 require (
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
