@@ -37,12 +37,13 @@ func parseTimeFromFilename(filename string) (time.Time, error) {
 }
 
 func play() {
-	http.HandleFunc("/", serveIndex)         // Dashboard
-	http.HandleFunc("/play", servePlay)      // Original recordings browser
-	http.HandleFunc("/live", serveLive)      // Live broadcast page
-	http.HandleFunc("/ws/live", handleLiveWS) // WebSocket endpoint
-	http.HandleFunc("/dirs", listDirs)       // 获取所有日期目录
-	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
+	http.HandleFunc("/", serveIndex)                 // Dashboard
+	http.HandleFunc("/play", servePlay)              // Original recordings browser
+	http.HandleFunc("/live", serveLive)              // Live broadcast page
+	http.HandleFunc("/ws/live", handleLiveWS)        // Live WebSocket (same port, reverse-proxy/mobile friendly)
+	http.HandleFunc("/pcm-worklet.js", serveWorklet) // AudioWorklet JS for Safari
+	http.HandleFunc("/dirs", listDirs)               // 获取所有日期目录
+	http.HandleFunc("/dir/", listFilesInDir)         // 获取某目录下文件
 	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
 
 	// Web API
@@ -50,9 +51,16 @@ func play() {
 	http.HandleFunc("/api/music", apiMusic)
 	http.HandleFunc("/api/logs", apiLogs)
 	http.HandleFunc("/api/control", apiControl)
+	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("pong"))
+	})
 
 	log.Printf("服务器启动中：http://0.0.0.0:%s\n", conf.System.WebPort)
-	log.Fatal(http.ListenAndServe(":"+conf.System.WebPort, nil))
+	server := &http.Server{
+		Addr: ":" + conf.System.WebPort,
+	}
+	log.Fatal(server.ListenAndServe())
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +77,44 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	w.Write(content)
 }
 
+func serveWorklet(w http.ResponseWriter, r *http.Request) {
+	const js = `class PCMPlayerProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.buffer = new Float32Array(0);
+        this.port.onmessage = (e) => {
+            const incoming = e.data;
+            const newBuf = new Float32Array(this.buffer.length + incoming.length);
+            newBuf.set(this.buffer);
+            newBuf.set(incoming, this.buffer.length);
+            this.buffer = newBuf;
+            if (this.buffer.length > 16000) {
+                this.buffer = this.buffer.slice(this.buffer.length - 16000);
+            }
+        };
+    }
+    process(inputs, outputs) {
+        const output = outputs[0][0];
+        if (!output) return true;
+        if (this.buffer.length >= output.length) {
+            output.set(this.buffer.subarray(0, output.length));
+            this.buffer = this.buffer.slice(output.length);
+        } else {
+            output.fill(0);
+            if (this.buffer.length > 0) {
+                output.set(this.buffer);
+                this.buffer = new Float32Array(0);
+            }
+        }
+        return true;
+    }
+}
+registerProcessor('pcm-player', PCMPlayerProcessor);`
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write([]byte(js))
+}
+
 func serveLive(w http.ResponseWriter, r *http.Request) {
 	content, err := webAssets.ReadFile("live.html")
 	if err != nil {
@@ -76,6 +122,9 @@ func serveLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	w.Write(content)
 }
 

@@ -136,7 +136,7 @@ func fullRescanMusic(dir string) {
 	buildMusicQueue(files)
 	musicstateMu.Unlock()
 
-	// Update TUI (outside lock)
+	// Update web state (outside lock)
 	updateMusicList(currentQueue.files, currentPlayingID)
 	log.Printf("✅ 音乐文件全量扫描完成. 跟踪 %d 个文件.", len(newTracked))
 }
@@ -279,7 +279,7 @@ func playNextMusic() {
 		// 解锁以执行播放操作
 		musicstateMu.Unlock()
 
-		// Update TUI Highlight
+		// Update current playing highlight state
 		updateMusicList(queue, currentPlayingID)
 
 		updateMusicList(queue, currentPlayingID)

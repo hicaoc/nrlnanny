@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NRL Nanny - Live Broadcast</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
-        rel="stylesheet">
+    <link rel="icon" href="data:,">
+    <link rel="apple-touch-icon" href="data:,">
     <style>
         :root {
             --bg-deep: #08090b;
@@ -32,7 +32,7 @@
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg-deep);
             color: var(--text-main);
             height: 100vh;
@@ -92,6 +92,34 @@
 
         .nav-link:hover {
             text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .mute-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            z-index: 4;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.72rem;
+            letter-spacing: 1px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .mute-btn:hover {
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 14px rgba(0, 210, 255, 0.35);
+        }
+
+        .mute-btn.muted {
+            background: rgba(255, 100, 100, 0.18);
+            border-color: rgba(255, 100, 100, 0.45);
+            color: #ffcece;
         }
 
         .status-dot {
@@ -179,7 +207,7 @@
         .floating-callsign {
             position: relative;
             z-index: 3;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
             font-size: clamp(2.5rem, 6vw, 5rem);
             font-weight: 700;
             color: #fff;
@@ -227,7 +255,7 @@
             border: none;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             color: rgba(255, 255, 255, 0.9);
-            font-family: 'Outfit', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             text-align: center;
             outline: none;
             transition: var(--transition);
@@ -320,7 +348,7 @@
             padding: 12px 16px;
             border-radius: 8px;
             margin-bottom: 6px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
             font-size: 1.05rem;
             border-left: 2px solid rgba(0, 210, 255, 0.3);
             transition: var(--transition);
@@ -374,7 +402,7 @@
 
         .start-btn {
             padding: 20px 50px;
-            font-family: 'Outfit', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             font-size: 1.2rem;
             font-weight: 600;
             letter-spacing: 2px;
@@ -412,6 +440,7 @@
             <!-- Left: Waveform + Callsign -->
             <section class="glass left-panel">
                 <canvas id="waveform-canvas"></canvas>
+                <button id="mute-btn" class="mute-btn" type="button">MUTE</button>
                 <div class="topic-input">
                     <input type="text" class="topic-main" id="topic-title" placeholder="BROADCAST TOPIC" maxlength="30">
                     <input type="text" class="topic-sub" id="topic-subtitle" placeholder="subtitle..." maxlength="60">
@@ -442,6 +471,9 @@
     </div>
 
     <script>
+        // ===== Debug =====
+        function dbg(msg) {}
+
         // ===== State =====
         let audioCtx = null;
         let playerNode = null;
@@ -459,104 +491,475 @@
         let waveformHistory = [];
         const MAX_WAVE_HISTORY = 60;
         let animFrameId = null;
+        let renderStarted = false;
         let vuStyle = 'classic';  // 'classic' or 'modern'
 
         // ===== Audio Setup =====
-        const workletCode = `
-class PCMPlayerProcessor extends AudioWorkletProcessor {
-    constructor() {
-        super();
-        this.buffer = new Float32Array(0);
-        this.port.onmessage = (e) => {
-            const incoming = e.data;
-            const newBuf = new Float32Array(this.buffer.length + incoming.length);
-            newBuf.set(this.buffer);
-            newBuf.set(incoming, this.buffer.length);
-            this.buffer = newBuf;
-            if (this.buffer.length > 16000) {
-                this.buffer = this.buffer.slice(this.buffer.length - 16000);
-            }
-        };
-    }
-    process(inputs, outputs) {
-        const output = outputs[0][0];
-        if (!output) return true;
-        if (this.buffer.length >= output.length) {
-            output.set(this.buffer.subarray(0, output.length));
-            this.buffer = this.buffer.slice(output.length);
-        } else {
-            output.fill(0);
-            if (this.buffer.length > 0) {
-                output.set(this.buffer);
-                this.buffer = new Float32Array(0);
+        let audioMode = 'none'; // 'worklet' or 'script'
+        let scriptBuffer = new Float32Array(0);
+        let scriptNodeRef = null;
+        let lastAudioGraphRefreshAt = 0;
+        let audioResumeBtn = null;
+        let isMuted = false;
+
+        function applyMuteState() {
+            const btn = document.getElementById('mute-btn');
+            if (!btn) return;
+            btn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
+            btn.classList.toggle('muted', isMuted);
+
+            if (audioMode === 'worklet' && playerNode && audioCtx) {
+                try {
+                    playerNode.disconnect();
+                } catch (e) {}
+                if (!isMuted) {
+                    try { playerNode.connect(audioCtx.destination); } catch (e) {}
+                }
             }
         }
-        return true;
-    }
-}
-registerProcessor('pcm-player', PCMPlayerProcessor);
-`;
+
+        function setupScriptProcessorNode() {
+            if (!audioCtx) return;
+
+            if (scriptNodeRef) {
+                try { scriptNodeRef.disconnect(); } catch (e) {}
+            }
+
+            const bufSize = 2048;
+            scriptNodeRef = audioCtx.createScriptProcessor(bufSize, 0, 1);
+            scriptNodeRef.onaudioprocess = (e) => {
+                const output = e.outputBuffer.getChannelData(0);
+                if (isMuted) {
+                    output.fill(0);
+                    return;
+                }
+                if (scriptBuffer.length >= output.length) {
+                    // If audioCtx sampleRate != 8000, need to resample
+                    if (audioCtx.sampleRate !== 8000) {
+                        const ratio = 8000 / audioCtx.sampleRate;
+                        const srcLen = Math.floor(output.length * ratio);
+                        const src = scriptBuffer.subarray(0, Math.min(srcLen, scriptBuffer.length));
+                        for (let i = 0; i < output.length; i++) {
+                            const srcIdx = i * ratio;
+                            const idx = Math.floor(srcIdx);
+                            const frac = srcIdx - idx;
+                            if (idx + 1 < src.length) {
+                                output[i] = src[idx] * (1 - frac) + src[idx + 1] * frac;
+                            } else if (idx < src.length) {
+                                output[i] = src[idx];
+                            } else {
+                                output[i] = 0;
+                            }
+                        }
+                        scriptBuffer = scriptBuffer.slice(srcLen);
+                    } else {
+                        output.set(scriptBuffer.subarray(0, output.length));
+                        scriptBuffer = scriptBuffer.slice(output.length);
+                    }
+                } else {
+                    output.fill(0);
+                    if (scriptBuffer.length > 0) {
+                        // Resample remaining if needed
+                        if (audioCtx.sampleRate !== 8000) {
+                            const ratio = 8000 / audioCtx.sampleRate;
+                            const src = scriptBuffer;
+                            const outLen = Math.floor(src.length / ratio);
+                            for (let i = 0; i < Math.min(outLen, output.length); i++) {
+                                const srcIdx = i * ratio;
+                                const idx = Math.floor(srcIdx);
+                                const frac = srcIdx - idx;
+                                if (idx + 1 < src.length) {
+                                    output[i] = src[idx] * (1 - frac) + src[idx + 1] * frac;
+                                } else if (idx < src.length) {
+                                    output[i] = src[idx];
+                                }
+                            }
+                        } else {
+                            output.set(scriptBuffer);
+                        }
+                        scriptBuffer = new Float32Array(0);
+                    }
+                }
+                // Cap buffer size
+                if (scriptBuffer.length > 16000) {
+                    scriptBuffer = scriptBuffer.slice(scriptBuffer.length - 16000);
+                }
+            };
+            scriptNodeRef.connect(audioCtx.destination);
+        }
+
+        function refreshAudioOutputGraph(reason, force) {
+            if (!isIOSClient || !audioCtx || audioMode !== 'script') return;
+            const now = Date.now();
+            if (!force && now - lastAudioGraphRefreshAt < 800) return;
+            lastAudioGraphRefreshAt = now;
+            setupScriptProcessorNode();
+            dbg('Audio output refresh(' + reason + '): script node reconnected');
+        }
+
+        function ensureAudioResumeButton() {
+            if (audioResumeBtn) return audioResumeBtn;
+            const btn = document.createElement('button');
+            btn.id = 'audio-resume-btn';
+            btn.textContent = 'TAP TO RESUME AUDIO';
+            btn.style.cssText = [
+                'position:fixed',
+                'top:12px',
+                'left:50%',
+                'transform:translateX(-50%)',
+                'z-index:9999',
+                'padding:10px 14px',
+                'background:#ff9f43',
+                'color:#111',
+                'border:none',
+                'border-radius:10px',
+                'font-weight:700',
+                'letter-spacing:0.5px',
+                'display:none',
+                'box-shadow:0 8px 20px rgba(0,0,0,0.35)'
+            ].join(';');
+            btn.addEventListener('click', async () => {
+                dbg('Audio resume button tapped');
+                await ensureAudioRunning('button-tap', true);
+            });
+            document.body.appendChild(btn);
+            audioResumeBtn = btn;
+            return btn;
+        }
+
+        function showAudioResumeButton() {
+            ensureAudioResumeButton().style.display = 'block';
+        }
+
+        function hideAudioResumeButton() {
+            if (audioResumeBtn) audioResumeBtn.style.display = 'none';
+        }
 
         async function initAudio() {
-            audioCtx = new AudioContext({ sampleRate: 8000 });
-            const blob = new Blob([workletCode], { type: 'application/javascript' });
-            const url = URL.createObjectURL(blob);
-            await audioCtx.audioWorklet.addModule(url);
-            URL.revokeObjectURL(url);
-            playerNode = new AudioWorkletNode(audioCtx, 'pcm-player');
-            playerNode.connect(audioCtx.destination);
+            // Try AudioContext with 8000Hz, fallback to default sampleRate
+            try {
+                audioCtx = new AudioContext({ sampleRate: 8000 });
+            } catch (e) {
+                audioCtx = new AudioContext();
+            }
+            // iOS Safari requires resume after user gesture
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+
+            // Try AudioWorklet (skip on iOS/iPadOS to avoid extra HTTP request eating connection pool)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            try {
+                if (!isIOS && audioCtx.audioWorklet) {
+                    await audioCtx.audioWorklet.addModule('/pcm-worklet.js');
+                    playerNode = new AudioWorkletNode(audioCtx, 'pcm-player');
+                    playerNode.connect(audioCtx.destination);
+                    audioMode = 'worklet';
+                    applyMuteState();
+                    console.log('Audio: using AudioWorklet');
+                    return;
+                }
+            } catch (e) {
+                console.warn('AudioWorklet failed, falling back to ScriptProcessor:', e);
+            }
+
+            // Fallback: ScriptProcessorNode (deprecated but widely supported)
+            setupScriptProcessorNode();
+            audioMode = 'script';
+            applyMuteState();
+            console.log('Audio: using ScriptProcessorNode (sampleRate=' + audioCtx.sampleRate + ')');
         }
 
         // ===== Start Button =====
-        document.getElementById('start-btn').addEventListener('click', async () => {
-            await initAudio();
-            document.getElementById('start-overlay').classList.add('hidden');
-            connectWS();
+        function ensureRenderStarted() {
+            if (renderStarted) return;
+            renderStarted = true;
+            dbg('Calling startRenderLoop...');
             startRenderLoop();
+        }
+
+        document.getElementById('mute-btn').addEventListener('click', () => {
+            isMuted = !isMuted;
+            applyMuteState();
+            dbg('Audio mute toggled: ' + (isMuted ? 'ON' : 'OFF'));
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            dbg('START clicked');
+            // FIRST: hide overlay, start WebSocket and rendering immediately
+            document.getElementById('start-overlay').classList.add('hidden');
+            dbg('Calling connectWS...');
+            connectWS();
+            dbg('Calling initAudioSafe...');
+            // On iOS, audio init must start inside user gesture context, otherwise output may stay muted.
+            if (isIOSClient) {
+                setTimeout(ensureRenderStarted, 1500);
+                initAudioSafe();
+            } else {
+                ensureRenderStarted();
+                initAudioSafe();
+            }
+        });
+
+        async function initAudioSafe() {
+            try {
+                // Race initAudio against a 5-second timeout
+                await Promise.race([
+                    initAudio(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Audio init timeout')), 5000))
+                ]);
+                dbg('Audio init OK: mode=' + audioMode + ', state=' + (audioCtx ? audioCtx.state : 'null'));
+                hideAudioResumeButton();
+            } catch (e) {
+                dbg('Audio init FAIL: ' + e.message);
+                console.warn('Audio init failed or timed out:', e);
+                audioMode = 'none';
+            }
+        }
+
+        async function ensureAudioRunning(reason, allowReinit) {
+            if (!audioCtx) return;
+            try {
+                if (audioCtx.state !== 'running') {
+                    await audioCtx.resume();
+                }
+                dbg('Audio ensure(' + reason + '): state=' + audioCtx.state);
+            } catch (e) {
+                dbg('Audio ensure(' + reason + ') error: ' + (e && e.message ? e.message : 'unknown'));
+            }
+
+            if (audioCtx.state === 'running') {
+                refreshAudioOutputGraph(reason, reason === 'button-tap');
+                hideAudioResumeButton();
+                return;
+            }
+
+            if (allowReinit) {
+                try {
+                    dbg('Audio reinit from gesture...');
+                    try { await audioCtx.close(); } catch (e) {}
+                    audioCtx = null;
+                    playerNode = null;
+                    scriptNodeRef = null;
+                    scriptBuffer = new Float32Array(0);
+                    await initAudio();
+                    dbg('Audio reinit OK: mode=' + audioMode + ', state=' + (audioCtx ? audioCtx.state : 'null'));
+                } catch (e) {
+                    dbg('Audio reinit FAIL: ' + (e && e.message ? e.message : 'unknown'));
+                }
+            }
+
+            if (!audioCtx || audioCtx.state !== 'running') {
+                showAudioResumeButton();
+            } else {
+                hideAudioResumeButton();
+            }
+        }
+
+        // Clean close on page unload (prevents zombie connections on iOS Safari)
+        window.addEventListener('beforeunload', () => {
+            if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+        });
+        window.addEventListener('pagehide', () => {
+            if (ws) { try { ws.onclose = null; ws.close(); } catch(e) {} }
+        });
+
+        // Reconnect when returning from background (iOS kills WS in background)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && ws) {
+                if (ws.readyState !== WebSocket.OPEN) {
+                    connectWS();
+                }
+                ensureAudioRunning('visible', false);
+                setTimeout(() => {
+                    ensureAudioRunning('visible-delay', false);
+                    refreshAudioOutputGraph('visible-delay-force', true);
+                }, 500);
+            }
+        });
+
+        window.addEventListener('pageshow', () => {
+            ensureAudioRunning('pageshow', false);
+            refreshAudioOutputGraph('pageshow-force', true);
         });
 
         // ===== WebSocket =====
-        function connectWS() {
+        let wsRetryTimer = null;
+        let wsConnectTimeout = null;
+        let wsSecondaryTimer = null;
+        let wsAttemptSeq = 0;
+        let wsCandidates = [];
+        const isIOSClient = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const wsConnectTimeoutMs = isIOSClient ? 12000 : 8000;
+
+        function handleLiveFrame(data) {
+            if (data.length < 8) return;
+
+            const msgType = data[0];
+            const csBytes = data.slice(1, 7);
+            const callsign = new TextDecoder().decode(csBytes).replace(/\0/g, '').trim();
+            const ssid = data[7];
+
+            switch (msgType) {
+                case 0x01: // AUDIO_DATA
+                    handleAudioData(data.slice(8), callsign, ssid);
+                    break;
+                case 0x02: // VOICE_START
+                    onVoiceStart(callsign, ssid);
+                    break;
+                case 0x03: // VOICE_END
+                    onVoiceEnd(callsign, ssid);
+                    break;
+            }
+        }
+
+        async function pingBeforeWS() {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 3000);
+            try {
+                const res = await fetch('/api/ping?t=' + Date.now(), {
+                    method: 'GET',
+                    cache: 'no-store',
+                    signal: ctrl.signal
+                });
+                dbg('HTTP ping: ' + res.status);
+                return res.ok;
+            } catch (e) {
+                dbg('HTTP ping fail: ' + (e && e.message ? e.message : 'network error'));
+                return false;
+            } finally {
+                clearTimeout(tid);
+            }
+        }
+
+        async function connectWS() {
+            wsAttemptSeq += 1;
+            const attemptId = wsAttemptSeq;
+
+            // Prevent duplicate reconnect timers
+            if (wsRetryTimer) {
+                clearTimeout(wsRetryTimer);
+                wsRetryTimer = null;
+            }
+            if (wsConnectTimeout) {
+                clearTimeout(wsConnectTimeout);
+                wsConnectTimeout = null;
+            }
+            if (wsSecondaryTimer) {
+                clearTimeout(wsSecondaryTimer);
+                wsSecondaryTimer = null;
+            }
+            // Close old connection if exists
+            if (ws) {
+                try { ws.onclose = null; ws.onerror = null; ws.close(); } catch(e) {}
+                ws = null;
+            }
+            for (const c of wsCandidates) {
+                try { c.onclose = null; c.onerror = null; c.close(); } catch(e) {}
+            }
+            wsCandidates = [];
+
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${proto}//${location.host}/ws/live`);
-            ws.binaryType = 'arraybuffer';
+            const baseWsUrl = `${proto}//${location.host}/ws/live?t=${Date.now()}`;
 
-            ws.onopen = () => {
-                document.getElementById('ws-dot').className = 'status-dot connected';
-                document.getElementById('ws-status').textContent = 'CONNECTED';
-                document.getElementById('ws-status').style.color = 'var(--accent-success)';
-            };
+            // iOS Safari occasionally stalls WS CONNECTING; warm up same-origin HTTP first.
+            if (isIOSClient) {
+                await pingBeforeWS();
+                if (attemptId !== wsAttemptSeq) return;
+            }
 
-            ws.onclose = () => {
-                document.getElementById('ws-dot').className = 'status-dot disconnected';
-                document.getElementById('ws-status').textContent = 'RECONNECTING';
-                document.getElementById('ws-status').style.color = '#ff4444';
-                setTimeout(connectWS, 2000);
-            };
+            document.getElementById('ws-status').textContent = 'CONNECTING';
+            document.getElementById('ws-status').style.color = '#ffaa00';
 
-            ws.onerror = () => ws.close();
-
-            ws.onmessage = (event) => {
-                const data = new Uint8Array(event.data);
-                if (data.length < 8) return;
-
-                const msgType = data[0];
-                const csBytes = data.slice(1, 7);
-                const callsign = new TextDecoder().decode(csBytes).replace(/\0/g, '').trim();
-                const ssid = data[7];
-
-                switch (msgType) {
-                    case 0x01: // AUDIO_DATA
-                        handleAudioData(data.slice(8), callsign, ssid);
-                        break;
-                    case 0x02: // VOICE_START
-                        onVoiceStart(callsign, ssid);
-                        break;
-                    case 0x03: // VOICE_END
-                        onVoiceEnd(callsign, ssid);
-                        break;
+            function attachSocket(label, url) {
+                let sock = null;
+                try {
+                    dbg('WS connecting (' + label + '): ' + url);
+                    sock = new WebSocket(url);
+                    wsCandidates.push(sock);
+                    dbg('WS object (' + label + ') created, readyState=' + sock.readyState);
+                } catch (e) {
+                    dbg('WS constructor error (' + label + '): ' + e.message);
+                    return;
                 }
-            };
+
+                sock.binaryType = 'arraybuffer';
+
+                sock.onopen = () => {
+                    if (attemptId !== wsAttemptSeq) return;
+                    if (ws && ws !== sock) {
+                        try { sock.onclose = null; sock.onerror = null; sock.close(); } catch(e) {}
+                        return;
+                    }
+                    ws = sock;
+                    if (wsConnectTimeout) { clearTimeout(wsConnectTimeout); wsConnectTimeout = null; }
+                    if (wsSecondaryTimer) { clearTimeout(wsSecondaryTimer); wsSecondaryTimer = null; }
+
+                    // Close any non-winning candidate sockets.
+                    for (const c of wsCandidates) {
+                        if (c !== ws) {
+                            try { c.onclose = null; c.onerror = null; c.close(); } catch(e) {}
+                        }
+                    }
+                    wsCandidates = [ws];
+
+                    dbg('WS OPEN via ' + label + '!');
+                    ensureRenderStarted();
+                    document.getElementById('ws-dot').className = 'status-dot connected';
+                    document.getElementById('ws-status').textContent = 'CONNECTED';
+                    document.getElementById('ws-status').style.color = 'var(--accent-success)';
+                };
+
+                sock.onclose = (e) => {
+                    if (attemptId !== wsAttemptSeq) return;
+                    if (sock !== ws) {
+                        dbg('WS CLOSE ignored (' + label + ')');
+                        return;
+                    }
+                    if (wsConnectTimeout) { clearTimeout(wsConnectTimeout); wsConnectTimeout = null; }
+                    if (wsSecondaryTimer) { clearTimeout(wsSecondaryTimer); wsSecondaryTimer = null; }
+                    ws = null;
+                    dbg('WS CLOSE code=' + e.code + ' reason=' + e.reason + ' clean=' + e.wasClean);
+                    document.getElementById('ws-dot').className = 'status-dot disconnected';
+                    document.getElementById('ws-status').textContent = 'RECONNECTING';
+                    document.getElementById('ws-status').style.color = '#ff4444';
+                    wsRetryTimer = setTimeout(connectWS, 2000);
+                };
+
+                sock.onerror = () => {
+                    if (attemptId !== wsAttemptSeq) return;
+                    dbg('WS ERROR (' + label + ')');
+                };
+
+                sock.onmessage = (event) => {
+                    if (attemptId !== wsAttemptSeq) return;
+                    if (sock !== ws) return;
+                    handleLiveFrame(new Uint8Array(event.data));
+                };
+            }
+
+            attachSocket('primary', baseWsUrl + '&c=1');
+
+            if (isIOSClient) {
+                wsSecondaryTimer = setTimeout(() => {
+                    if (attemptId !== wsAttemptSeq) return;
+                    if (ws) return;
+                    attachSocket('secondary', baseWsUrl + '&c=2');
+                }, 1200);
+            }
+
+            wsConnectTimeout = setTimeout(() => {
+                if (attemptId !== wsAttemptSeq) return;
+                if (ws) return;
+                dbg('WS stuck CONNECTING for ' + Math.round(wsConnectTimeoutMs / 1000) + 's, retrying...');
+                document.getElementById('ws-status').textContent = 'TIMEOUT-RETRY';
+                document.getElementById('ws-status').style.color = '#ff8800';
+                for (const c of wsCandidates) {
+                    try { c.onclose = null; c.onerror = null; c.close(); } catch(e) {}
+                }
+                wsCandidates = [];
+                wsRetryTimer = setTimeout(connectWS, 1000);
+            }, wsConnectTimeoutMs);
         }
 
         function handleAudioData(pcmBytes, callsign, ssid) {
@@ -568,9 +971,14 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
                 samples[i] = view.getInt16(i * 2, true) / 32768.0;
             }
 
-            // Send to audio worklet
-            if (playerNode) {
+            // Send to audio output
+            if (audioMode === 'worklet' && playerNode) {
                 playerNode.port.postMessage(samples);
+            } else if (audioMode === 'script') {
+                const newBuf = new Float32Array(scriptBuffer.length + samples.length);
+                newBuf.set(scriptBuffer);
+                newBuf.set(samples, scriptBuffer.length);
+                scriptBuffer = newBuf;
             }
 
             // Update visualization state
@@ -1022,7 +1430,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
             const dbVal = rawLevel > 0.001 ? (20 * Math.log10(rawLevel)) : -60;
             const dbTxt = dbVal > -60 ? (dbVal >= 0 ? '+' : '') + dbVal.toFixed(1) + ' dB' : '-\u221E dB';
             const dbCFS = Math.max(11, radius * 0.16);
-            ctx.font = `bold ${dbCFS}px 'JetBrains Mono', monospace`;
+            ctx.font = `bold ${dbCFS}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
             ctx.fillStyle = rawLevel >= 1.0 ? 'rgba(180,40,30,0.9)' : 'rgba(40,35,25,0.7)';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(dbTxt, dialCX, dialCY - radius * 0.32);
@@ -1324,7 +1732,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
                 // Labels
                 if (m.major) {
                     const labelR = radius * 1.30;
-                    ctx.font = `${Math.max(8, radius * 0.11)}px 'JetBrains Mono', monospace`;
+                    ctx.font = `${Math.max(8, radius * 0.11)}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
                     ctx.fillStyle = isRed ? 'rgba(255, 80, 50, 0.85)' : 'rgba(0, 210, 255, 0.70)';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
@@ -1451,7 +1859,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
 
             // dB value text
             const dbFS = Math.max(14, boxH * 0.55);
-            ctx.font = `bold ${dbFS}px 'JetBrains Mono', monospace`;
+            ctx.font = `bold ${dbFS}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
             const txtColor = needlePos >= 0.78 ? '#ff4020' :
                              needlePos >= 0.6 ? '#ffc800' : '#00d2ff';
             ctx.fillStyle = txtColor;
@@ -1460,7 +1868,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
             ctx.fillText(dbTxt, cx - dbFS * 0.4, boxY + boxH / 2);
 
             // "dB" unit
-            ctx.font = `${Math.max(9, dbFS * 0.55)}px 'JetBrains Mono', monospace`;
+            ctx.font = `${Math.max(9, dbFS * 0.55)}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
             ctx.fillStyle = 'rgba(0, 210, 255, 0.45)';
             ctx.fillText('dB', cx + boxW * 0.28, boxY + boxH / 2);
 
@@ -1488,7 +1896,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
             ctx.stroke();
 
             // "VU" label at bottom
-            ctx.font = `${Math.max(8, oh * 0.05)}px 'JetBrains Mono', monospace`;
+            ctx.font = `${Math.max(8, oh * 0.05)}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
             ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

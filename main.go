@@ -31,9 +31,7 @@ const maxLogLines = 100
 func main() {
 
 	conf.init()
-
-	// Initialize TUI
-	initTUI()
+	initWebLogCapture()
 
 	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
@@ -57,9 +55,6 @@ func main() {
 
 	// Run UDP client in background
 	go udpClient()
-
-	// Start TUI (Blocking)
-	startTUI()
 
 	select {}
 }

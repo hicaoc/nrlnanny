@@ -33,7 +33,7 @@ func startcron() {
 	//启动计划任务
 	c.Start()
 
-	// Update TUI periodically
+	// Update web status periodically
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
