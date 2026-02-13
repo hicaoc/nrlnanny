@@ -53,12 +53,26 @@
         }
 
         .glass {
-            background: var(--bg-surface);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(120% 90% at 10% -20%, rgba(255, 255, 255, 0.16), transparent 46%),
+                linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+            backdrop-filter: blur(16px) saturate(125%);
+            -webkit-backdrop-filter: blur(16px) saturate(125%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
             border-radius: var(--radius);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.24),
+                0 14px 40px rgba(0, 0, 0, 0.42);
+        }
+
+        .glass::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 34%);
+            pointer-events: none;
         }
 
         /* Header */
@@ -299,13 +313,8 @@
 
         /* VU Meter */
         .vu-panel {
-            padding: 0;
+            padding: 10px;
             flex: 0 0 auto;
-            background: none;
-            border: none;
-            box-shadow: none;
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
             overflow: visible;
         }
 
@@ -450,7 +459,7 @@
 
             <!-- Right: VU + History -->
             <aside class="right-panel">
-                <div class="vu-panel">
+                <div class="glass vu-panel">
                     <div class="vu-wrapper">
                         <canvas id="vu-canvas"></canvas>
                     </div>
@@ -1282,7 +1291,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             // === RECTANGULAR PANEL ===
             const frameT = 7;
             const cornerR = 5;
-            const margin = 12;
+            const margin = 8;
             const ox = margin, oy = margin;
             const ow = W - margin * 2, oh = H - margin * 2;
 
@@ -1391,8 +1400,8 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
 
             // === DIAL AREA ===
             const dialCX = W / 2;
-            const dialCY = fy + fh * 0.78;
-            const radius = Math.min(fw * 0.42, fh * 0.58);
+            const dialCY = fy + fh * 0.80;
+            const radius = Math.min(fw * 0.46, fh * 0.64);
 
             const sweepStart = Math.PI * 1.08;
             const sweepEnd = Math.PI * 1.92;
@@ -1419,10 +1428,10 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                 const angle = sweepStart + t * sweepRange;
                 const isRed = t >= 0.78;
                 ctx.beginPath();
-                ctx.moveTo(dialCX + Math.cos(angle) * radius * 0.82, dialCY + Math.sin(angle) * radius * 0.82);
-                ctx.lineTo(dialCX + Math.cos(angle) * radius * 0.88, dialCY + Math.sin(angle) * radius * 0.88);
+                ctx.moveTo(dialCX + Math.cos(angle) * radius * 0.80, dialCY + Math.sin(angle) * radius * 0.80);
+                ctx.lineTo(dialCX + Math.cos(angle) * radius * 0.89, dialCY + Math.sin(angle) * radius * 0.89);
                 ctx.strokeStyle = isRed ? 'rgba(180,40,30,0.4)' : 'rgba(40,35,25,0.25)';
-                ctx.lineWidth = 0.8;
+                ctx.lineWidth = 1;
                 ctx.stroke();
             }
 
@@ -1453,7 +1462,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                 { label: '40', pos: 0.283 }, { label: '60', pos: 0.425 },
                 { label: '80', pos: 0.566 }, { label: '100', pos: 0.708 },
             ];
-            ctx.font = `${Math.max(7, radius * 0.09)}px serif`;
+            ctx.font = `${Math.max(8, radius * 0.105)}px serif`;
             ctx.fillStyle = 'rgba(80,70,50,0.6)';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             for (const m of pctMarks) {
@@ -1466,26 +1475,26 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             }
 
             // dB ticks and labels
-            const dbFS = Math.max(8, radius * 0.11);
+            const dbFS = Math.max(9, radius * 0.125);
             for (const m of scaleMarks) {
                 const a = sweepStart + m.pos * sweepRange;
                 const isRed = m.pos >= 0.78;
                 ctx.beginPath();
-                ctx.moveTo(dialCX + Math.cos(a) * radius * (m.major ? 0.78 : 0.82), dialCY + Math.sin(a) * radius * (m.major ? 0.78 : 0.82));
-                ctx.lineTo(dialCX + Math.cos(a) * radius * 0.88, dialCY + Math.sin(a) * radius * 0.88);
+                ctx.moveTo(dialCX + Math.cos(a) * radius * (m.major ? 0.75 : 0.80), dialCY + Math.sin(a) * radius * (m.major ? 0.75 : 0.80));
+                ctx.lineTo(dialCX + Math.cos(a) * radius * 0.90, dialCY + Math.sin(a) * radius * 0.90);
                 ctx.strokeStyle = isRed ? 'rgba(180,40,30,0.9)' : 'rgba(40,35,25,0.75)';
-                ctx.lineWidth = m.major ? 2 : 1.2;
+                ctx.lineWidth = m.major ? 2.4 : 1.5;
                 ctx.stroke();
                 ctx.font = `${m.major ? 'bold ' : ''}${m.major ? dbFS : dbFS * 0.85}px serif`;
                 ctx.fillStyle = isRed ? 'rgba(180,40,30,0.95)' : 'rgba(40,35,25,0.85)';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(m.db, dialCX + Math.cos(a) * radius * 0.96, dialCY + Math.sin(a) * radius * 0.96);
+                ctx.fillText(m.db, dialCX + Math.cos(a) * radius * 0.98, dialCY + Math.sin(a) * radius * 0.98);
             }
 
             // dB readout (based on raw uncapped level)
             const dbVal = rawLevel > 0.001 ? (20 * Math.log10(rawLevel)) : -60;
             const dbTxt = dbVal > -60 ? (dbVal >= 0 ? '+' : '') + dbVal.toFixed(1) + ' dB' : '-\u221E dB';
-            const dbCFS = Math.max(11, radius * 0.16);
+            const dbCFS = Math.max(12, radius * 0.18);
             ctx.font = `bold ${dbCFS}px 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace`;
             ctx.fillStyle = rawLevel >= 1.0 ? 'rgba(180,40,30,0.9)' : 'rgba(40,35,25,0.7)';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1493,11 +1502,11 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
 
             // === NEEDLE SHADOW (drawn separately, offset) ===
             const nAngle = sweepStart + needlePos * sweepRange;
-            const nLen = radius * 0.96;
+            const nLen = radius * 1.02;
             const tipX = dialCX + Math.cos(nAngle) * nLen;
             const tipY = dialCY + Math.sin(nAngle) * nLen;
             const perp = nAngle + Math.PI / 2;
-            const bW = radius * 0.024, tW = radius * 0.004;
+            const bW = radius * 0.030, tW = radius * 0.006;
             const shOX = 3, shOY = 5;
 
             // Shadow shape (offset, blurred, semi-transparent)
@@ -1530,7 +1539,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             const rtR = radius * 0.65;
             const rtX = dialCX + Math.cos(nAngle) * rtR;
             const rtY = dialCY + Math.sin(nAngle) * rtR;
-            const rtW = radius * 0.015;
+            const rtW = radius * 0.018;
             ctx.beginPath();
             ctx.moveTo(rtX + Math.cos(perp) * rtW, rtY + Math.sin(perp) * rtW);
             ctx.lineTo(tipX, tipY);
