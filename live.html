@@ -459,6 +459,7 @@
         let waveformHistory = [];
         const MAX_WAVE_HISTORY = 60;
         let animFrameId = null;
+        let vuStyle = 'classic';  // 'classic' or 'modern'
 
         // ===== Audio Setup =====
         const workletCode = `
@@ -655,6 +656,12 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
             ro.observe(waveCanvas.parentElement);
             ro.observe(vuCanvas.parentElement);
 
+            // Click to toggle VU style
+            vuCanvas.style.cursor = 'pointer';
+            vuCanvas.addEventListener('click', () => {
+                vuStyle = vuStyle === 'classic' ? 'modern' : 'classic';
+            });
+
             function frame() {
                 // Smooth RMS
                 currentRMS += (targetRMS - currentRMS) * 0.3;
@@ -670,7 +677,11 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
                 }
 
                 drawWaveform(waveCanvas);
-                drawVUMeter(vuCanvas);
+                if (vuStyle === 'modern') {
+                    drawVUMeterModern(vuCanvas);
+                } else {
+                    drawVUMeter(vuCanvas);
+                }
                 updateCallsignVibration();
 
                 animFrameId = requestAnimationFrame(frame);
@@ -1166,6 +1177,332 @@ registerProcessor('pcm-player', PCMPlayerProcessor);
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
             ctx.lineWidth = 1;
             ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // ===== Modern Futuristic VU Meter =====
+        function drawVUMeterModern(canvas) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.width / dpr;
+            const H = canvas.height / dpr;
+
+            // Same dB mapping as classic
+            const maxAmp = 1.413;
+            const rawLevel = currentRMS * 4;
+            const level = Math.min(rawLevel, maxAmp);
+            const needlePos = level / maxAmp;
+
+            ctx.clearRect(0, 0, W, H);
+            ctx.save();
+
+            const margin = 8;
+            const ox = margin, oy = margin;
+            const ow = W - margin * 2, oh = H - margin * 2;
+
+            // === DARK PANEL BACKGROUND ===
+            roundRect(ctx, ox, oy, ow, oh, 8);
+            const bgGrad = ctx.createLinearGradient(ox, oy, ox, oy + oh);
+            bgGrad.addColorStop(0, '#0c1018');
+            bgGrad.addColorStop(0.5, '#0a0e14');
+            bgGrad.addColorStop(1, '#060a10');
+            ctx.fillStyle = bgGrad;
+            ctx.fill();
+
+            // Subtle border glow
+            roundRect(ctx, ox, oy, ow, oh, 8);
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Inner border
+            roundRect(ctx, ox + 2, oy + 2, ow - 4, oh - 4, 6);
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.06)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+
+            // === ARC METER ===
+            const cx = W / 2;
+            const cy = oy + oh * 0.82;
+            const radius = Math.min(ow * 0.40, oh * 0.56);
+
+            const sweepStart = Math.PI * 1.08;
+            const sweepEnd = Math.PI * 1.92;
+            const sweepRange = sweepEnd - sweepStart;
+
+            // Background arc track
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, sweepStart, sweepEnd);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = radius * 0.14;
+            ctx.lineCap = 'butt';
+            ctx.stroke();
+
+            // Segmented LED arc
+            const totalSegs = 48;
+            const segGap = sweepRange * 0.004;
+            const segArc = (sweepRange - segGap * totalSegs) / totalSegs;
+
+            for (let i = 0; i < totalSegs; i++) {
+                const t = i / totalSegs;
+                const segStart = sweepStart + i * (segArc + segGap);
+                const segEnd = segStart + segArc;
+                const isLit = t <= needlePos;
+                const isPeak = t >= 0.78;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, segStart, segEnd);
+
+                if (isLit) {
+                    if (isPeak) {
+                        // Red/orange for overdrive zone
+                        const redT = (t - 0.78) / 0.22;
+                        ctx.strokeStyle = `rgba(${255}, ${Math.floor(80 - redT * 50)}, ${Math.floor(30 - redT * 20)}, 0.95)`;
+                    } else if (t > 0.6) {
+                        // Yellow transition zone
+                        ctx.strokeStyle = `rgba(${Math.floor(0 + (t - 0.6) * 1400)}, ${Math.floor(210 - (t - 0.6) * 200)}, ${Math.floor(255 - (t - 0.6) * 1200)}, 0.90)`;
+                    } else {
+                        // Cyan to green gradient
+                        ctx.strokeStyle = `rgba(0, ${Math.floor(180 + t * 120)}, ${Math.floor(255 - t * 150)}, 0.85)`;
+                    }
+                    ctx.lineWidth = radius * 0.12;
+                } else {
+                    // Unlit segment - dim
+                    ctx.strokeStyle = isPeak ? 'rgba(80, 20, 15, 0.25)' : 'rgba(30, 50, 60, 0.20)';
+                    ctx.lineWidth = radius * 0.12;
+                }
+                ctx.lineCap = 'butt';
+                ctx.stroke();
+            }
+
+            // Glow effect on lit arc
+            if (needlePos > 0.01) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, sweepStart, sweepStart + needlePos * sweepRange);
+                const glowColor = needlePos >= 0.78 ? 'rgba(255, 60, 20, 0.35)' :
+                                  needlePos >= 0.6 ? 'rgba(255, 200, 0, 0.25)' :
+                                  'rgba(0, 210, 255, 0.25)';
+                ctx.strokeStyle = glowColor;
+                ctx.lineWidth = radius * 0.24;
+                ctx.lineCap = 'butt';
+                ctx.filter = 'blur(6px)';
+                ctx.stroke();
+                ctx.filter = 'none';
+                ctx.restore();
+            }
+
+            // === SCALE MARKS ===
+            const scaleMarks = [
+                { db: '-20', pos: 0.071, major: true },
+                { db: '-10', pos: 0.224, major: true },
+                { db: '-7',  pos: 0.316, major: false },
+                { db: '-5',  pos: 0.398, major: true },
+                { db: '-3',  pos: 0.501, major: false },
+                { db: '-1',  pos: 0.631, major: false },
+                { db: '0',   pos: 0.708, major: true },
+                { db: '+1',  pos: 0.794, major: false },
+                { db: '+2',  pos: 0.891, major: false },
+                { db: '+3',  pos: 1.0,   major: true },
+            ];
+
+            // Outer tick marks
+            for (const m of scaleMarks) {
+                const a = sweepStart + m.pos * sweepRange;
+                const isRed = m.pos >= 0.78;
+                const innerR = radius * (m.major ? 1.10 : 1.12);
+                const outerR = radius * (m.major ? 1.20 : 1.18);
+
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR);
+                ctx.lineTo(cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR);
+                ctx.strokeStyle = isRed ? 'rgba(255, 80, 50, 0.7)' : 'rgba(0, 210, 255, 0.45)';
+                ctx.lineWidth = m.major ? 2 : 1;
+                ctx.stroke();
+
+                // Labels
+                if (m.major) {
+                    const labelR = radius * 1.30;
+                    ctx.font = `${Math.max(8, radius * 0.11)}px 'JetBrains Mono', monospace`;
+                    ctx.fillStyle = isRed ? 'rgba(255, 80, 50, 0.85)' : 'rgba(0, 210, 255, 0.70)';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(m.db, cx + Math.cos(a) * labelR, cy + Math.sin(a) * labelR);
+                }
+            }
+
+            // Minor ticks
+            for (let i = 0; i <= 40; i++) {
+                const t = i / 40;
+                const a = sweepStart + t * sweepRange;
+                const isRed = t >= 0.78;
+                ctx.beginPath();
+                ctx.moveTo(cx + Math.cos(a) * radius * 1.10, cy + Math.sin(a) * radius * 1.10);
+                ctx.lineTo(cx + Math.cos(a) * radius * 1.13, cy + Math.sin(a) * radius * 1.13);
+                ctx.strokeStyle = isRed ? 'rgba(255, 80, 50, 0.25)' : 'rgba(0, 210, 255, 0.15)';
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+
+            // === NEEDLE (thin, glowing) ===
+            const nAngle = sweepStart + needlePos * sweepRange;
+            const nTipR = radius * 1.08;
+            const nBaseR = radius * 0.12;
+            const tipX = cx + Math.cos(nAngle) * nTipR;
+            const tipY = cy + Math.sin(nAngle) * nTipR;
+            const baseX = cx + Math.cos(nAngle) * nBaseR;
+            const baseY = cy + Math.sin(nAngle) * nBaseR;
+
+            // Needle glow
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(baseX, baseY);
+            ctx.lineTo(tipX, tipY);
+            const needleColor = needlePos >= 0.78 ? 'rgba(255, 60, 20, 0.6)' :
+                                needlePos >= 0.6 ? 'rgba(255, 200, 0, 0.5)' :
+                                'rgba(0, 210, 255, 0.5)';
+            ctx.strokeStyle = needleColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.filter = 'blur(4px)';
+            ctx.stroke();
+            ctx.filter = 'none';
+            ctx.restore();
+
+            // Needle body
+            ctx.beginPath();
+            ctx.moveTo(baseX, baseY);
+            ctx.lineTo(tipX, tipY);
+            const bodyColor = needlePos >= 0.78 ? '#ff4020' :
+                              needlePos >= 0.6 ? '#ffc800' : '#00d2ff';
+            ctx.strokeStyle = bodyColor;
+            ctx.lineWidth = 1.5;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Needle tip dot
+            ctx.beginPath();
+            ctx.arc(tipX, tipY, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = bodyColor;
+            ctx.fill();
+
+            // Center hub
+            const hubR = radius * 0.06;
+            const hubGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, hubR);
+            hubGrad.addColorStop(0, 'rgba(0, 210, 255, 0.8)');
+            hubGrad.addColorStop(0.5, 'rgba(0, 140, 200, 0.4)');
+            hubGrad.addColorStop(1, 'rgba(0, 80, 120, 0.1)');
+            ctx.beginPath();
+            ctx.arc(cx, cy, hubR, 0, Math.PI * 2);
+            ctx.fillStyle = hubGrad;
+            ctx.fill();
+            // Hub ring
+            ctx.beginPath();
+            ctx.arc(cx, cy, hubR, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // === PEAK HOLD ===
+            if (peakLevel > 0.01) {
+                const peakAmp = Math.min(peakLevel * 4, maxAmp);
+                const pa = sweepStart + (peakAmp / maxAmp) * sweepRange;
+                const peakInR = radius * 0.92;
+                const peakOutR = radius * 1.08;
+                const isPeakRed = (peakAmp / maxAmp) >= 0.78;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, pa - 0.008, pa + 0.008);
+                ctx.strokeStyle = isPeakRed ? 'rgba(255, 60, 20, 0.9)' : 'rgba(0, 210, 255, 0.9)';
+                ctx.lineWidth = radius * 0.14;
+                ctx.lineCap = 'butt';
+                ctx.stroke();
+
+                // Peak glow
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, pa - 0.015, pa + 0.015);
+                ctx.strokeStyle = isPeakRed ? 'rgba(255, 60, 20, 0.4)' : 'rgba(0, 210, 255, 0.4)';
+                ctx.lineWidth = radius * 0.22;
+                ctx.filter = 'blur(4px)';
+                ctx.stroke();
+                ctx.filter = 'none';
+                ctx.restore();
+            }
+
+            // === DIGITAL READOUT ===
+            const dbVal = rawLevel > 0.001 ? (20 * Math.log10(rawLevel)) : -60;
+            const dbTxt = dbVal > -60 ? (dbVal >= 0 ? '+' : '') + dbVal.toFixed(1) : '-\u221E';
+
+            // dB display box
+            const boxW = Math.max(80, ow * 0.22);
+            const boxH = Math.max(28, oh * 0.12);
+            const boxX = cx - boxW / 2;
+            const boxY = cy - radius * 0.55 - boxH / 2;
+
+            roundRect(ctx, boxX, boxY, boxW, boxH, 4);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fill();
+            roundRect(ctx, boxX, boxY, boxW, boxH, 4);
+            ctx.strokeStyle = needlePos >= 0.78 ? 'rgba(255, 60, 20, 0.4)' : 'rgba(0, 210, 255, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // dB value text
+            const dbFS = Math.max(14, boxH * 0.55);
+            ctx.font = `bold ${dbFS}px 'JetBrains Mono', monospace`;
+            const txtColor = needlePos >= 0.78 ? '#ff4020' :
+                             needlePos >= 0.6 ? '#ffc800' : '#00d2ff';
+            ctx.fillStyle = txtColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dbTxt, cx - dbFS * 0.4, boxY + boxH / 2);
+
+            // "dB" unit
+            ctx.font = `${Math.max(9, dbFS * 0.55)}px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = 'rgba(0, 210, 255, 0.45)';
+            ctx.fillText('dB', cx + boxW * 0.28, boxY + boxH / 2);
+
+            // === HUD DECORATIONS ===
+            // Corner brackets
+            const bLen = 10;
+            const bOff = 4;
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.18)';
+            ctx.lineWidth = 1;
+            // Top-left
+            ctx.beginPath();
+            ctx.moveTo(ox + bOff + bLen, oy + bOff); ctx.lineTo(ox + bOff, oy + bOff); ctx.lineTo(ox + bOff, oy + bOff + bLen);
+            ctx.stroke();
+            // Top-right
+            ctx.beginPath();
+            ctx.moveTo(ox + ow - bOff - bLen, oy + bOff); ctx.lineTo(ox + ow - bOff, oy + bOff); ctx.lineTo(ox + ow - bOff, oy + bOff + bLen);
+            ctx.stroke();
+            // Bottom-left
+            ctx.beginPath();
+            ctx.moveTo(ox + bOff + bLen, oy + oh - bOff); ctx.lineTo(ox + bOff, oy + oh - bOff); ctx.lineTo(ox + bOff, oy + oh - bOff - bLen);
+            ctx.stroke();
+            // Bottom-right
+            ctx.beginPath();
+            ctx.moveTo(ox + ow - bOff - bLen, oy + oh - bOff); ctx.lineTo(ox + ow - bOff, oy + oh - bOff); ctx.lineTo(ox + ow - bOff, oy + oh - bOff - bLen);
+            ctx.stroke();
+
+            // "VU" label at bottom
+            ctx.font = `${Math.max(8, oh * 0.05)}px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('VU METER', cx, oy + oh - bOff - 4);
+
+            // Scan line effect (subtle)
+            for (let y = oy; y < oy + oh; y += 3) {
+                ctx.beginPath();
+                ctx.moveTo(ox, y);
+                ctx.lineTo(ox + ow, y);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
 
             ctx.restore();
         }
