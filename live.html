@@ -501,6 +501,38 @@
         let lastAudioGraphRefreshAt = 0;
         let audioResumeBtn = null;
         let isMuted = false;
+        const PCM_WORKLET_CODE = `class PCMPlayerProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.buffer = new Float32Array(0);
+        this.port.onmessage = (e) => {
+            const incoming = e.data;
+            const newBuf = new Float32Array(this.buffer.length + incoming.length);
+            newBuf.set(this.buffer);
+            newBuf.set(incoming, this.buffer.length);
+            this.buffer = newBuf;
+            if (this.buffer.length > 16000) {
+                this.buffer = this.buffer.slice(this.buffer.length - 16000);
+            }
+        };
+    }
+    process(inputs, outputs) {
+        const output = outputs[0][0];
+        if (!output) return true;
+        if (this.buffer.length >= output.length) {
+            output.set(this.buffer.subarray(0, output.length));
+            this.buffer = this.buffer.slice(output.length);
+        } else {
+            output.fill(0);
+            if (this.buffer.length > 0) {
+                output.set(this.buffer);
+                this.buffer = new Float32Array(0);
+            }
+        }
+        return true;
+    }
+}
+registerProcessor('pcm-player', PCMPlayerProcessor);`;
 
         function applyMuteState() {
             const btn = document.getElementById('mute-btn');
@@ -647,11 +679,35 @@
                 await audioCtx.resume();
             }
 
-            // Try AudioWorklet (skip on iOS/iPadOS to avoid extra HTTP request eating connection pool)
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            // Try AudioWorklet first on all platforms.
             try {
-                if (!isIOS && audioCtx.audioWorklet) {
-                    await audioCtx.audioWorklet.addModule('/pcm-worklet.js');
+                // Some Safari contexts with forced sampleRate may expose no audioWorklet.
+                if (!audioCtx.audioWorklet) {
+                    const altCtx = new AudioContext();
+                    if (altCtx.state === 'suspended') {
+                        await altCtx.resume();
+                    }
+                    if (altCtx.audioWorklet) {
+                        try { await audioCtx.close(); } catch (e) {}
+                        audioCtx = altCtx;
+                    } else {
+                        try { await altCtx.close(); } catch (e) {}
+                    }
+                }
+
+                if (audioCtx.audioWorklet) {
+                    // Prefer hosted module, fallback to inline blob module.
+                    try {
+                        await audioCtx.audioWorklet.addModule('/pcm-worklet.js');
+                    } catch (e) {
+                        const blob = new Blob([PCM_WORKLET_CODE], { type: 'application/javascript' });
+                        const blobURL = URL.createObjectURL(blob);
+                        try {
+                            await audioCtx.audioWorklet.addModule(blobURL);
+                        } finally {
+                            URL.revokeObjectURL(blobURL);
+                        }
+                    }
                     playerNode = new AudioWorkletNode(audioCtx, 'pcm-player');
                     playerNode.connect(audioCtx.destination);
                     audioMode = 'worklet';
