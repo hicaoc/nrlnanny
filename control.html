@@ -71,10 +71,17 @@
             gap: 16px;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .header-right {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 16px;
             flex-wrap: wrap;
             justify-content: flex-end;
         }
@@ -86,13 +93,20 @@
         }
 
         h1 {
-            font-size: 1.4rem;
+            font-size: clamp(1rem, 2vw, 1.3rem);
             letter-spacing: 1px;
             background: linear-gradient(to right, #fff, var(--text-dim));
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0;
+        }
+
+        .header-sub {
+            font-weight: 300;
+            opacity: 0.75;
+            background: none;
+            -webkit-text-fill-color: var(--text-dim);
         }
 
         .status-dot {
@@ -324,6 +338,7 @@
             text-decoration: none;
             font-size: 0.85rem;
             font-weight: 600;
+            letter-spacing: 1px;
             transition: var(--transition);
         }
 
@@ -494,10 +509,12 @@
 <body>
     <div class="container">
         <header class="glass">
-            <h1>NRL NANNY <span style="font-weight:300; opacity:0.6;">DASHBOARD</span></h1>
-            <div class="header-right">
+            <div class="header-left">
+                <h1>NRL NANNY <span class="header-sub">DASHBOARD</span></h1>
                 <a href="/live" class="nav-link">📡 LIVE</a>
                 <a href="/play" class="nav-link">📂 BROWSER</a>
+            </div>
+            <div class="header-right">
                 <div class="system-pill"><span class="status-dot"></span><span
                         style="font-size:0.75rem; letter-spacing:1px; color:var(--accent-success);">SYSTEM READY</span>
                 </div>
