@@ -95,6 +95,20 @@
             white-space: nowrap;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
         .nav-link {
             color: var(--accent-glow);
             text-decoration: none;
@@ -428,6 +442,94 @@
             transform: scale(1.05);
             box-shadow: 0 0 60px rgba(0, 210, 255, 0.5);
         }
+
+        @media (max-width: 640px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+                padding: 10px;
+                overflow: auto;
+            }
+
+            .container {
+                height: auto;
+                min-height: calc(100vh - 20px);
+                gap: 12px;
+                overflow: visible;
+            }
+
+            header.glass {
+                padding: 12px 14px;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            h1 {
+                font-size: 1rem;
+                letter-spacing: 0.6px;
+                white-space: normal;
+            }
+
+            .header-right {
+                width: 100%;
+                gap: 12px;
+                justify-content: space-between;
+            }
+
+            .live-grid {
+                grid-template-rows: minmax(280px, 48vh) auto;
+                gap: 12px;
+                overflow: visible;
+                flex: initial;
+            }
+
+            .right-panel {
+                overflow: visible;
+                min-height: 280px;
+            }
+
+            .history-panel {
+                min-height: 240px;
+            }
+
+            .history-entry {
+                gap: 10px;
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+
+            .history-time {
+                min-width: 62px;
+                font-size: 0.78rem;
+            }
+
+            .history-duration {
+                font-size: 0.76rem;
+            }
+
+            .topic-input .topic-main {
+                font-size: clamp(1.1rem, 6.2vw, 1.6rem);
+                letter-spacing: 1px;
+                padding: 6px 12px;
+            }
+
+            .topic-input .topic-sub {
+                font-size: clamp(0.82rem, 4vw, 1rem);
+                padding: 2px 12px;
+            }
+
+            .floating-callsign {
+                font-size: clamp(1.8rem, 9vw, 2.8rem);
+                letter-spacing: clamp(1px, 0.3vw, 3px);
+            }
+
+            .mute-btn {
+                bottom: 10px;
+                right: 10px;
+                padding: 5px 10px;
+                font-size: 0.66rem;
+            }
+        }
     </style>
 </head>
 
@@ -435,10 +537,10 @@
     <div class="container">
         <header class="glass">
             <h1>NRL NANNY <span style="font-weight:300; opacity:0.6;">LIVE</span></h1>
-            <div style="display:flex; align-items:center; gap:20px;">
+            <div class="header-right">
                 <a href="/" class="nav-link">DASHBOARD</a>
                 <a href="/play" class="nav-link">BROWSER</a>
-                <div>
+                <div class="status-pill">
                     <span class="status-dot disconnected" id="ws-dot"></span>
                     <span id="ws-status" style="font-size:0.7rem; letter-spacing:1px; color:var(--text-dim);">CONNECTING</span>
                 </div>

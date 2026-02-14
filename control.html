@@ -62,6 +62,21 @@
             justify-content: space-between;
             align-items: center;
             padding: 16px 24px;
+            gap: 16px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .system-pill {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
         }
 
         h1 {
@@ -138,6 +153,7 @@
             justify-content: center;
             align-items: center;
             gap: 24px;
+            flex-wrap: wrap;
         }
 
         .btn-circle {
@@ -253,6 +269,7 @@
         .song-name {
             font-weight: 500;
             font-size: 0.95rem;
+            word-break: break-word;
         }
 
         .progress-bar {
@@ -328,27 +345,6 @@
             text-shadow: 0 0 10px var(--accent-glow);
         }
 
-        .btn-large {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            text-decoration: none;
-            padding: 16px;
-            border-radius: 12px;
-            font-weight: 600;
-            transition: var(--transition);
-            margin-top: 20px;
-        }
-
-        .btn-large:hover {
-            border-color: var(--accent-glow);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
         /* Switch Styling */
         .switch-container {
             display: flex;
@@ -413,6 +409,79 @@
         .ducking-panel {
             margin-top: 10px;
         }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 12px;
+            }
+
+            .container {
+                gap: 14px;
+            }
+
+            .glass {
+                padding: 16px;
+            }
+
+            header.glass {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 14px 16px;
+            }
+
+            .header-right {
+                width: 100%;
+                gap: 14px;
+                justify-content: space-between;
+            }
+
+            h1 {
+                font-size: 1.1rem;
+                letter-spacing: 0.6px;
+            }
+
+            .control-btns {
+                gap: 14px;
+            }
+
+            .btn-circle {
+                width: 48px;
+                height: 48px;
+                font-size: 1rem;
+            }
+
+            .btn-main {
+                width: 62px;
+                height: 62px;
+                font-size: 1.4rem;
+            }
+
+            .volume-bar {
+                padding: 10px 14px;
+                gap: 10px;
+            }
+
+            .song-item {
+                padding: 12px;
+            }
+
+            .song-info {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .song-name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .terminal-box {
+                height: 180px;
+                padding: 14px;
+                font-size: 0.78rem;
+            }
+        }
     </style>
 </head>
 
@@ -420,10 +489,10 @@
     <div class="container">
         <header class="glass">
             <h1>NRL NANNY <span style="font-weight:300; opacity:0.6;">DASHBOARD</span></h1>
-            <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="header-right">
                 <a href="/live" class="nav-link">📡 LIVE</a>
                 <a href="/play" class="nav-link">📂 BROWSER</a>
-                <div><span class="status-dot"></span><span
+                <div class="system-pill"><span class="status-dot"></span><span
                         style="font-size:0.75rem; letter-spacing:1px; color:var(--accent-success);">SYSTEM READY</span>
                 </div>
             </div>
@@ -500,12 +569,6 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: auto;">
-                        <a href="/play" class="btn-large">
-                            <span>VIEW RECORDINGS</span>
-                            <span>→</span>
-                        </a>
-                    </div>
                 </div>
             </aside>
 
