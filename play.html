@@ -17,18 +17,28 @@
             --border-radius: 12px;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
             padding: 20px;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
         }
 
         .container {
             max-width: 900px;
             margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-height: 0;
         }
 
         .glass {
@@ -38,6 +48,12 @@
             border-radius: var(--border-radius);
             padding: 25px;
             margin-bottom: 20px;
+        }
+
+        #content {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
         }
 
         h1 {

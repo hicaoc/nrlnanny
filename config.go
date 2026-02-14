@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -20,6 +21,11 @@ type config struct {
 		DuckScale       float64 `yaml:"DuckScale" json:"duck_scale"`        // 音量降低比例
 		DuckMicPCM      bool    `yaml:"DuckMicPCM" json:"duck_mic_pcm"`     // 是否降低麦克风音量
 		DuckMusicPCM    bool    `yaml:"DuckMusicPCM" json:"duck_music_pcm"` // 是否降低音乐音量
+		RecordMic       bool    `yaml:"RecordMic" json:"record_mic"`        // 是否启用麦克风录音
+		EnableMusic     bool    `yaml:"EnableMusic" json:"enable_music"`    // 是否启用音乐播放
+		EnableCron      bool    `yaml:"EnableCron" json:"enable_cron"`      // 是否启用信标播放
+		EnableTimePlay  bool    `yaml:"EnableTimePlay" json:"enable_time"`  // 是否启用定时点播放
+		MusicPlaying    bool    `yaml:"MusicPlaying" json:"music_playing"`  // 是否处于播放状态
 		AudioFile       string  `yaml:"AudioFile" json:"audio_file"`
 		AudioFilePath   string  `yaml:"AudioFilePath" json:"audio_file_Path"`
 		MusicFilePath   string  `yaml:"MusicFilePath" json:"music_file_Path"`
@@ -30,6 +36,8 @@ type config struct {
 }
 
 var conf = &config{}
+var confPath string
+var confMu sync.Mutex
 
 func (c *config) init() {
 
@@ -49,6 +57,12 @@ func (c *config) init() {
 	if *cc != "" {
 		confpath = *cc
 	}
+	confPath = confpath
+
+	conf.System.EnableMusic = true
+	conf.System.EnableCron = true
+	conf.System.EnableTimePlay = true
+	conf.System.MusicPlaying = true
 
 	yamlFile, err := os.ReadFile(confpath)
 
@@ -78,6 +92,25 @@ func (c *config) init() {
 		conf.System.WebPort = "8080"
 	}
 
+}
+
+func saveConfig() {
+	confMu.Lock()
+	defer confMu.Unlock()
+
+	if confPath == "" {
+		log.Printf("config path is empty, skip saving")
+		return
+	}
+
+	data, err := yaml.Marshal(conf)
+	if err != nil {
+		log.Printf("marshal config failed: %v", err)
+		return
+	}
+	if err := os.WriteFile(confPath, data, 0644); err != nil {
+		log.Printf("write config failed: %v", err)
+	}
 }
 
 // Exist 判断文件存在

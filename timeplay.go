@@ -54,12 +54,27 @@ func playAudio() {
 	// 3. 启动文件监听（增量处理）
 	go watchFilesIncremental(dir)
 
+	// 4. 监听开关变化
+	go func() {
+		for range timeToggleChan {
+			if !isTimeEnabled() {
+				clearTimeSchedules()
+			} else {
+				fullRescan(dir)
+			}
+		}
+	}()
+
 	log.Printf("✅ Audio scheduler started. Full rescan at midnight, incremental update on change.")
 }
 
 // fullRescan 全量扫描目录，重建 trackedFiles 和 scheduledTasks
 func fullRescan(dir string) {
 	log.Printf("🔄 开始全量扫描目录: %s", dir)
+	if !isTimeEnabled() {
+		clearTimeSchedules()
+		return
+	}
 
 	now := time.Now()
 
@@ -121,11 +136,17 @@ func fullRescan(dir string) {
 		duration := playTime.Sub(now)
 
 		timer := time.AfterFunc(duration, func() {
+			if !isTimeEnabled() {
+				return
+			}
 			data := readWAV(file.Path)
 
 			// pcmbuff := make([][]int, 1)
 
 			for i := 0; i < len(data); i += 160 {
+				if !isTimeEnabled() {
+					return
+				}
 				if i+160 < len(data) {
 					// 每次创建新的切片结构，防止引用被覆盖
 					chunk := [][]int{data[i : i+160]}
@@ -201,6 +222,9 @@ func watchFilesIncremental(dir string) {
 // handleFileAdded 处理新增文件（只处理今天未来的）
 func handleFileAdded(path string) {
 	log.Printf("🟢 文件新增: %s", path)
+	if !isTimeEnabled() {
+		return
+	}
 	matches := filenameRegex.FindStringSubmatch(filepath.Base(path))
 	if matches == nil {
 		log.Printf("🟡 跳过非规范命名文件: %s", path)
@@ -234,11 +258,17 @@ func handleFileAdded(path string) {
 	// 设置定时器
 	duration := playTime.Sub(now)
 	timer := time.AfterFunc(duration, func() {
+		if !isTimeEnabled() {
+			return
+		}
 		data := readWAV(path)
 
 		// pcmbuff := make([][]int, 1)
 
 		for i := 0; i < len(data); i += 160 {
+			if !isTimeEnabled() {
+				return
+			}
 			if i+160 < len(data) {
 				// 每次创建新的切片结构，防止引用被覆盖
 				chunk := [][]int{data[i : i+160]}
@@ -297,8 +327,20 @@ func startDailyFullRescan(dir string) {
 		time.Sleep(duration)
 
 		// 触发全量重扫（自动清理旧任务）
-		fullRescan(dir)
+		if isTimeEnabled() {
+			fullRescan(dir)
+		}
 	}
+}
+
+func clearTimeSchedules() {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	for _, timer := range scheduledTasks {
+		timer.Stop()
+	}
+	scheduledTasks = make(map[string]*time.Timer)
+	updateScheduleList(trackedFiles)
 }
 
 // 辅助函数

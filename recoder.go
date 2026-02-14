@@ -191,6 +191,11 @@ func (r *Recorder) Stop() {
 }
 
 func StartRecoder() {
+
+	if conf.System.RecoderFilePath == "" {
+		log.Printf("录音文件路径未配置，录音失败")
+		return
+	}
 	// 示例用法
 	baseOutputDir := conf.System.RecoderFilePath
 	if err := os.MkdirAll(baseOutputDir, 0755); err != nil {

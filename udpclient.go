@@ -295,7 +295,9 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 		streamReader.WriteChunk(chunkBytes)
 	}
 
-	recorder.ProcessPCMData(chunkBytes)
+	if isRecordMicEnabled() {
+		recorder.ProcessPCMData(chunkBytes)
+	}
 
 	liveHub.BroadcastAudio(nrl.CallSign, nrl.SSID, chunkBytes)
 

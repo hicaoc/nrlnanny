@@ -21,7 +21,9 @@ hostlist='nrlptt.com bh4tdv.nrlptt.com ba1gm.nrlptt.com bd4vki.nrlptt.com  ah.nr
 
 #hostlist='bh4tdv.nrlptt.com'
 
-hostlist="js.nrlptt.com"
+#hostlist="js.nrlptt.com"
+
+hostlist='bh1osw.nrlptt.com  js.nrlptt.com'
 
 #scp nrlnanny root@192.168.35.40:nrlnanny/
  

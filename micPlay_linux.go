@@ -32,6 +32,9 @@ func MicRun() {
 
 	// 3. 定义数据回调
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+		if !isRecordMicEnabled() {
+			return
+		}
 		// pInputSamples 是原始字节流
 		// S16格式: 每个采样2字节
 		// 单声道: 每次采样1个S16
@@ -71,19 +74,33 @@ func MicRun() {
 		log.Printf("❌ 音频设备初始化失败: %v", err)
 		return
 	}
+	defer device.Uninit()
 
-	// 5. 启动设备
-	if err := device.Start(); err != nil {
-		log.Printf("❌ 启动音频采集失败: %v", err)
-		return
+	started := false
+	applyRecordState := func() {
+		if isRecordMicEnabled() {
+			if started {
+				return
+			}
+			if err := device.Start(); err != nil {
+				log.Printf("❌ 启动音频采集失败: %v", err)
+				return
+			}
+			started = true
+			log.Println("✅ 麦克风采集已启动 (Malgo/Miniaudio, 8000Hz, S16, Mono)")
+			return
+		}
+		if started {
+			_ = device.Stop()
+			started = false
+			log.Println("🛑 麦克风采集已停止")
+		}
 	}
 
-	log.Println("✅ 麦克风采集已启动 (Malgo/Miniaudio, 8000Hz, S16, Mono)")
-
-	// 6. 阻塞主线程 (直到程序退出)
-	// 因为 device 在 defer 中销毁，必须保持函数运行
-	// 使用 select{} 阻塞
-	select {}
+	applyRecordState()
+	for range recordToggleChan {
+		applyRecordState()
+	}
 
 	// device.Uninit() // Unreached
 }

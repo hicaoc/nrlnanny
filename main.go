@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"sync"
+	"log"
+	"os/exec"
 	"time"
 )
 
@@ -21,17 +22,13 @@ var nextmusic = make(chan bool, 1)
 var lastmusic = make(chan bool, 1)
 var pausemusic = make(chan bool, 1)
 
-var (
-	GlobalLogBuffer []string
-	logMu           sync.Mutex
-)
-
-const maxLogLines = 100
-
 func main() {
 
 	conf.init()
-	initWebLogCapture()
+	setRecordMicEnabled(conf.System.RecordMic)
+	setMusicEnabled(conf.System.EnableMusic)
+	setCronEnabled(conf.System.EnableCron)
+	setTimeEnabled(conf.System.EnableTimePlay)
 
 	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
@@ -54,7 +51,12 @@ func main() {
 	// go keyboardrun()
 
 	// Run UDP client in background
+
 	go udpClient()
+
+	url := fmt.Sprintf("http://localhost:%s", conf.System.WebPort)
+	log.Printf("🌐 正在自动打开浏览器访问: %s", url)
+	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 
 	select {}
 }

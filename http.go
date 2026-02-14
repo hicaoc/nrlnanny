@@ -49,7 +49,6 @@ func play() {
 	// Web API
 	http.HandleFunc("/api/status", apiStatus)
 	http.HandleFunc("/api/music", apiMusic)
-	http.HandleFunc("/api/logs", apiLogs)
 	http.HandleFunc("/api/control", apiControl)
 	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -143,7 +142,7 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 	s := statusState
 	c := cronState
 	p := progressState
-	ip := isPlayingState
+
 	displayMu.Unlock()
 
 	data := map[string]any{
@@ -151,10 +150,13 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 		"status":         s,
 		"cron":           c,
 		"progress":       p,
-		"playing":        ip,
+		"playing":        conf.System.MusicPlaying,
 		"duck_scale":     int(conf.System.DuckScale * 100),
 		"duck_mic_pcm":   conf.System.DuckMicPCM,
 		"duck_music_pcm": conf.System.DuckMusicPCM,
+		"record_mic":     isRecordMicEnabled(),
+		"cron_enabled":   isCronEnabled(),
+		"time_enabled":   isTimeEnabled(),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
@@ -172,16 +174,6 @@ func apiMusic(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
-}
-
-func apiLogs(w http.ResponseWriter, r *http.Request) {
-	logMu.Lock()
-	logs := make([]string, len(GlobalLogBuffer))
-	copy(logs, GlobalLogBuffer)
-	logMu.Unlock()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(logs)
 }
 
 func apiControl(w http.ResponseWriter, r *http.Request) {
@@ -208,6 +200,8 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 		case pausemusic <- true:
 		default:
 		}
+		conf.System.MusicPlaying = !conf.System.MusicPlaying
+		saveConfig()
 	case "next":
 		select {
 		case nextmusic <- true:
@@ -222,18 +216,52 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 		if req.Value >= 0 && req.Value <= 2 {
 			conf.System.Volume = req.Value
 			updateVolumeDisplay()
+			saveConfig()
 		}
 	case "duck_scale":
 		if req.Value >= 0 && req.Value <= 1 {
 			conf.System.DuckScale = req.Value
 			log.Printf("Duck Scale updated to: %.2f", req.Value)
+			saveConfig()
 		}
 	case "duck_mic_pcm":
 		conf.System.DuckMicPCM = !conf.System.DuckMicPCM
 		log.Printf("Duck Mic PCM updated to: %v", conf.System.DuckMicPCM)
+		saveConfig()
 	case "duck_music_pcm":
 		conf.System.DuckMusicPCM = !conf.System.DuckMusicPCM
 		log.Printf("Duck Music PCM updated to: %v", conf.System.DuckMusicPCM)
+		saveConfig()
+	case "record_mic":
+		conf.System.RecordMic = !conf.System.RecordMic
+		setRecordMicEnabled(conf.System.RecordMic)
+		enabled := conf.System.RecordMic
+		if !enabled {
+			recorder.Stop()
+		}
+		log.Printf("Record Mic updated to: %v", enabled)
+		saveConfig()
+	case "music_toggle":
+		conf.System.MusicPlaying = !conf.System.MusicPlaying
+		select {
+		case pausemusic <- true:
+		default:
+		}
+		log.Printf("Music playing updated to: %v", conf.System.MusicPlaying)
+		saveConfig()
+	case "cron_toggle":
+		conf.System.EnableCron = !conf.System.EnableCron
+		setCronEnabled(conf.System.EnableCron)
+		if !conf.System.EnableCron {
+			updateCronInfo("Cron Disabled")
+		}
+		log.Printf("Cron enabled updated to: %v", conf.System.EnableCron)
+		saveConfig()
+	case "time_toggle":
+		conf.System.EnableTimePlay = !conf.System.EnableTimePlay
+		setTimeEnabled(conf.System.EnableTimePlay)
+		log.Printf("Time play enabled updated to: %v", conf.System.EnableTimePlay)
+		saveConfig()
 	}
 
 	w.WriteHeader(http.StatusOK)

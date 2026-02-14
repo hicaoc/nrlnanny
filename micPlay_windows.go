@@ -3,10 +3,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math"
-	"os/exec"
 	"time"
 	"unsafe"
 
@@ -21,12 +19,15 @@ type FilterState struct {
 
 // MicRun 启动麦克风采集 (Windows WASAPI)
 func MicRun() {
-	url := fmt.Sprintf("http://localhost:%s", conf.System.WebPort)
-	log.Printf("🌐 正在自动打开浏览器访问: %s", url)
-	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-
-	if err := runCapture(); err != nil {
-		log.Printf("❌ 麦克风采集失败 (Windows): %v", err)
+	for {
+		if !isRecordMicEnabled() {
+			<-recordToggleChan
+			continue
+		}
+		if err := runCapture(); err != nil {
+			log.Printf("❌ 麦克风采集失败 (Windows): %v", err)
+			time.Sleep(500 * time.Millisecond)
+		}
 	}
 }
 
@@ -303,6 +304,9 @@ func runCapture() error {
 
 	// 8. 主循环
 	for {
+		if !isRecordMicEnabled() {
+			return nil
+		}
 		var pData *byte
 		var numFramesToRead uint32
 		var flags uint32
@@ -368,6 +372,10 @@ func runCapture() error {
 
 			// 6. 分块发送（160 点/帧，约 20ms @ 8000Hz）
 			for len(outputBuffer) >= 160 {
+				if !isRecordMicEnabled() {
+					outputBuffer = outputBuffer[:0]
+					break
+				}
 				chunk := make([]int, 160)
 				copy(chunk, outputBuffer[:160])
 				select {

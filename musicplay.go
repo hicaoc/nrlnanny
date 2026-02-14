@@ -174,9 +174,11 @@ func playNextMusic() {
 		queue := currentQueue.files
 		if len(queue) == 0 {
 			musicstateMu.Unlock()
-			log.Println("🎵 没有可播放的音乐文件，等待中...")
+			if conf.System.MusicPlaying {
+				log.Println("🎵 没有可播放的音乐文件，等待中...")
+			}
 
-			updatePlayStatus("Idle", 0, false)
+			updatePlayStatus("Idle", 0, conf.System.MusicPlaying)
 			// 等待新文件通知或超时
 			select {
 			case <-musicUpdateChan:
@@ -309,7 +311,7 @@ func playNextMusic() {
 			totalSamples = 1 // Prevent division by zero
 		}
 
-		playstatus := true
+		playstatus := conf.System.MusicPlaying
 		buf := &audio.IntBuffer{Data: make([]int, 160), Format: decoder.Format()}
 		processedSamples := 0
 		percent := 0
@@ -332,10 +334,12 @@ func playNextMusic() {
 				break tag
 			case <-pausemusic:
 				playstatus = !playstatus
+				conf.System.MusicPlaying = playstatus
+				saveConfig()
 				// Report state change immediately
 				updatePlayStatus(fmt.Sprintf("%s: %s (ID: %04d) [%d%%]",
 					map[bool]string{true: "Playing", false: "Paused"}[playstatus],
-					filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, playstatus)
+					filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, conf.System.MusicPlaying)
 			case <-lastmusic:
 				forcePrevious = true
 				break tag
@@ -355,7 +359,7 @@ func playNextMusic() {
 						// Report state change immediately
 						updatePlayStatus(fmt.Sprintf("%s: %s (ID: %04d) [%d%%]",
 							map[bool]string{true: "Playing", false: "Paused"}[playstatus],
-							filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, playstatus)
+							filepath.Base(fileToPlay.Path), fileToPlay.ID, percent), percent, conf.System.MusicPlaying)
 					case <-lastmusic:
 						forcePrevious = true
 						break tag
@@ -376,7 +380,7 @@ func playNextMusic() {
 			// Throttle status updates
 			if processedSamples%8000 == 0 { // Every ~1 second
 				statusText := fmt.Sprintf("Playing: %s (ID: %04d) [%d%%]", filepath.Base(fileToPlay.Path), fileToPlay.ID, percent)
-				updatePlayStatus(statusText, percent, playstatus)
+				updatePlayStatus(statusText, percent, conf.System.MusicPlaying)
 			}
 			// Check for next track or exit
 			select {

@@ -26,13 +26,18 @@
             outline: none;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             font-family: 'Outfit', sans-serif;
             background: radial-gradient(circle at top right, #111827, var(--bg-deep));
             color: var(--text-main);
             margin: 0;
             padding: 24px;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: auto;
             display: flex;
             justify-content: center;
         }
@@ -43,6 +48,7 @@
             display: flex;
             flex-direction: column;
             gap: 24px;
+            min-height: 100%;
         }
 
         .glass {
@@ -83,6 +89,7 @@
             font-size: 1.4rem;
             letter-spacing: 1px;
             background: linear-gradient(to right, #fff, var(--text-dim));
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin: 0;
@@ -121,6 +128,8 @@
             display: grid;
             grid-template-columns: 1.2fr 0.8fr;
             gap: 24px;
+            flex: 1;
+            min-height: 0;
         }
 
         @media (max-width: 900px) {
@@ -308,28 +317,6 @@
             font-weight: 600;
         }
 
-        /* Terminal */
-        .terminal-panel {
-            grid-column: 1 / -1;
-        }
-
-        .terminal-box {
-            background: #000;
-            border-radius: 10px;
-            padding: 20px;
-            height: 240px;
-            overflow-y: auto;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #ccc;
-            border: 1px solid #222;
-        }
-
-        .log-entry {
-            margin-bottom: 4px;
-            border-left: 2px solid #333;
-            padding-left: 10px;
-        }
 
         /* Links */
         .nav-link {
@@ -354,6 +341,21 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 12px;
             margin-bottom: 8px;
+        }
+
+        .switch-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .switch-container.compact {
+            padding: 10px 14px;
+            margin-bottom: 0;
+        }
+
+        .switch-label {
+            font-size: 0.85rem;
         }
 
         .switch-label {
@@ -476,10 +478,14 @@
                 white-space: nowrap;
             }
 
-            .terminal-box {
-                height: 180px;
-                padding: 14px;
-                font-size: 0.78rem;
+            .switch-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
             }
         }
     </style>
@@ -543,22 +549,33 @@
                     </div>
 
                     <div class="ducking-panel">
-                        <h2>Ducking Controls</h2>
-                        <div class="switch-container">
-                            <span class="switch-label">Music Ducking</span>
-                            <label class="switch">
-                                <input type="checkbox" id="duck-music-toggle" onclick="control('duck_music_pcm')">
-                                <span class="slider"></span>
-                            </label>
+                        <div class="controls-header" style="display:flex; justify-content:space-between; align-items:center;">
+                            <h2 style="margin-bottom:0;">Controls</h2>
                         </div>
-                        <div class="switch-container">
-                            <span class="switch-label">Mic Ducking</span>
-                            <label class="switch">
-                                <input type="checkbox" id="duck-mic-toggle" onclick="control('duck_mic_pcm')">
-                                <span class="slider"></span>
-                            </label>
+                        <div class="switch-grid" style="margin-bottom: 12px;">
+                            <div class="switch-container compact">
+                                <span class="switch-label">Mic Recording</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="record-mic-toggle" onclick="control('record_mic')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="switch-container compact">
+                                <span class="switch-label">Beacon Cron</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="cron-play-toggle" onclick="control('cron_toggle')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="switch-container compact">
+                                <span class="switch-label">Time Playback</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="time-play-toggle" onclick="control('time_toggle')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
                         </div>
-                        <div style="margin-top: 16px;">
+                        <div style="margin-top: 12px;">
                             <span class="item-label" style="display:block; margin-bottom:8px;">Duck Scale</span>
                             <div class="volume-bar" style="padding: 10px 15px;">
                                 <input type="range" id="duck-scale-slider" min="0" max="100" value="10"
@@ -567,18 +584,27 @@
                                     style="font-family:'JetBrains Mono'; min-width:40px; text-align:right; font-size:0.85rem;">10%</span>
                             </div>
                         </div>
+                        <div class="switch-grid" style="margin-top: 12px;">
+                            <div class="switch-container compact">
+                                <span class="switch-label">Music Ducking</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="duck-music-toggle" onclick="control('duck_music_pcm')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="switch-container compact">
+                                <span class="switch-label">Mic Ducking</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="duck-mic-toggle" onclick="control('duck_mic_pcm')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
             </aside>
 
-            <!-- Logs -->
-            <section class="glass terminal-panel">
-                <h2>Real-time Feed</h2>
-                <div class="terminal-box" id="terminal">
-                    <!-- Logs Here -->
-                </div>
-            </section>
         </div>
     </div>
 
@@ -597,6 +623,9 @@
 
                 document.getElementById('duck-music-toggle').checked = data.duck_music_pcm;
                 document.getElementById('duck-mic-toggle').checked = data.duck_mic_pcm;
+                document.getElementById('record-mic-toggle').checked = data.record_mic;
+                document.getElementById('cron-play-toggle').checked = data.cron_enabled;
+                document.getElementById('time-play-toggle').checked = data.time_enabled;
                 document.getElementById('duck-scale-text').innerText = data.duck_scale + '%';
                 document.getElementById('duck-scale-slider').value = data.duck_scale;
 
@@ -634,16 +663,6 @@
             } catch (e) { }
         }
 
-        async function updateLogs() {
-            try {
-                const res = await fetch('/api/logs');
-                const logs = await res.json();
-                const box = document.getElementById('terminal');
-                const isBottom = box.scrollHeight - box.clientHeight <= box.scrollTop + 10;
-                box.innerHTML = logs.map(l => `<div class="log-entry">${l}</div>`).join('');
-                if (isBottom) box.scrollTop = box.scrollHeight;
-            } catch (e) { }
-        }
 
         async function control(action, id = 0, value = 0) {
             await fetch('/api/control', {
@@ -664,10 +683,9 @@
             control('duck_scale', 0, val / 100);
         }
 
-        updateStatus(); updateMusic(); updateLogs();
+        updateStatus(); updateMusic();
         setInterval(updateStatus, 1000);
         setInterval(updateMusic, 3000);
-        setInterval(updateLogs, 3000);
     </script>
 </body>
 

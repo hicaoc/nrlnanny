@@ -38,6 +38,10 @@ func startcron() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
+			if !isCronEnabled() {
+				updateCronInfo("Cron Disabled")
+				continue
+			}
 			entries := c.Entries()
 			if len(entries) > 0 {
 				// Find next run time
@@ -65,6 +69,9 @@ func startcron() {
 }
 
 func (o sendvoice) Run() {
+	if !isCronEnabled() {
+		return
+	}
 
 	log.Printf("\n读取信标文件，准备播放信标...%s\n", conf.System.AudioFile)
 	updatePlayStatus("Beacon Playing...", 0, true)
@@ -76,6 +83,9 @@ func (o sendvoice) Run() {
 		// pcmbuff := make([][]int, 1) // 移除外部定义，避免并发竞争
 
 		for i := 0; i < len(wav); i += 160 {
+			if !isCronEnabled() {
+				return
+			}
 			if i+160 < len(wav) {
 				// 每次创建新的切片结构，防止引用被覆盖
 				data := [][]int{wav[i : i+160]}
