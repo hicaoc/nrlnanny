@@ -295,7 +295,7 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 		streamReader.WriteChunk(chunkBytes)
 	}
 
-	if isRecordMicEnabled() {
+	if isRecordingEnabled() {
 		recorder.ProcessPCMData(chunkBytes)
 	}
 

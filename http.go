@@ -155,6 +155,7 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 		"duck_mic_pcm":   conf.System.DuckMicPCM,
 		"duck_music_pcm": conf.System.DuckMusicPCM,
 		"record_mic":     isRecordMicEnabled(),
+		"record_voice":   isRecordingEnabled(),
 		"cron_enabled":   isCronEnabled(),
 		"time_enabled":   isTimeEnabled(),
 	}
@@ -235,11 +236,15 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 	case "record_mic":
 		conf.System.RecordMic = !conf.System.RecordMic
 		setRecordMicEnabled(conf.System.RecordMic)
-		enabled := conf.System.RecordMic
-		if !enabled {
+		log.Printf("Mic Capture updated to: %v", conf.System.RecordMic)
+		saveConfig()
+	case "record_voice":
+		conf.System.RecordVoice = !conf.System.RecordVoice
+		setRecordingEnabled(conf.System.RecordVoice)
+		if !conf.System.RecordVoice {
 			recorder.Stop()
 		}
-		log.Printf("Record Mic updated to: %v", enabled)
+		log.Printf("Voice Recording updated to: %v", conf.System.RecordVoice)
 		saveConfig()
 	case "music_toggle":
 		conf.System.MusicPlaying = !conf.System.MusicPlaying

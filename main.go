@@ -26,6 +26,7 @@ func main() {
 
 	conf.init()
 	setRecordMicEnabled(conf.System.RecordMic)
+	setRecordingEnabled(conf.System.RecordVoice)
 	setMusicEnabled(conf.System.EnableMusic)
 	setCronEnabled(conf.System.EnableCron)
 	setTimeEnabled(conf.System.EnableTimePlay)

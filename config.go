@@ -21,7 +21,8 @@ type config struct {
 		DuckScale       float64 `yaml:"DuckScale" json:"duck_scale"`        // 音量降低比例
 		DuckMicPCM      bool    `yaml:"DuckMicPCM" json:"duck_mic_pcm"`     // 是否降低麦克风音量
 		DuckMusicPCM    bool    `yaml:"DuckMusicPCM" json:"duck_music_pcm"` // 是否降低音乐音量
-		RecordMic       bool    `yaml:"RecordMic" json:"record_mic"`        // 是否启用麦克风录音
+		RecordMic       bool    `yaml:"RecordMic" json:"record_mic"`        // 是否启用麦克风采集
+		RecordVoice     bool    `yaml:"RecordVoice" json:"record_voice"`    // 是否启用通话录音
 		EnableMusic     bool    `yaml:"EnableMusic" json:"enable_music"`    // 是否启用音乐播放
 		EnableCron      bool    `yaml:"EnableCron" json:"enable_cron"`      // 是否启用信标播放
 		EnableTimePlay  bool    `yaml:"EnableTimePlay" json:"enable_time"`  // 是否启用定时点播放
@@ -63,6 +64,7 @@ func (c *config) init() {
 	conf.System.EnableCron = true
 	conf.System.EnableTimePlay = true
 	conf.System.MusicPlaying = true
+	conf.System.RecordVoice = true
 
 	yamlFile, err := os.ReadFile(confpath)
 

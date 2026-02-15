@@ -14,10 +14,12 @@ var (
 )
 
 var recordMicEnabled uint32 = 0
+var recordingEnabled uint32 = 1
 var musicEnabled uint32 = 1
 var cronEnabled uint32 = 1
 var timeEnabled uint32 = 1
 var recordToggleChan = make(chan struct{}, 1)
+var recordingToggleChan = make(chan struct{}, 1)
 var musicToggleChan = make(chan struct{}, 1)
 var cronToggleChan = make(chan struct{}, 1)
 var timeToggleChan = make(chan struct{}, 1)
@@ -49,6 +51,37 @@ func toggleRecordMicEnabled() bool {
 func signalRecordToggle() {
 	select {
 	case recordToggleChan <- struct{}{}:
+	default:
+	}
+}
+
+func isRecordingEnabled() bool {
+	return atomic.LoadUint32(&recordingEnabled) == 1
+}
+
+func setRecordingEnabled(enabled bool) {
+	if enabled {
+		atomic.StoreUint32(&recordingEnabled, 1)
+	} else {
+		atomic.StoreUint32(&recordingEnabled, 0)
+	}
+	signalRecordingToggle()
+}
+
+func toggleRecordingEnabled() bool {
+	if atomic.LoadUint32(&recordingEnabled) == 1 {
+		atomic.StoreUint32(&recordingEnabled, 0)
+		signalRecordingToggle()
+		return false
+	}
+	atomic.StoreUint32(&recordingEnabled, 1)
+	signalRecordingToggle()
+	return true
+}
+
+func signalRecordingToggle() {
+	select {
+	case recordingToggleChan <- struct{}{}:
 	default:
 	}
 }

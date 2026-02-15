@@ -571,9 +571,16 @@
                         </div>
                         <div class="switch-grid" style="margin-bottom: 12px;">
                             <div class="switch-container compact">
-                                <span class="switch-label">Mic Recording</span>
+                                <span class="switch-label">Mic Capture</span>
                                 <label class="switch">
                                     <input type="checkbox" id="record-mic-toggle" onclick="control('record_mic')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="switch-container compact">
+                                <span class="switch-label">Voice Recording</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="record-voice-toggle" onclick="control('record_voice')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
@@ -641,6 +648,7 @@
                 document.getElementById('duck-music-toggle').checked = data.duck_music_pcm;
                 document.getElementById('duck-mic-toggle').checked = data.duck_mic_pcm;
                 document.getElementById('record-mic-toggle').checked = data.record_mic;
+                document.getElementById('record-voice-toggle').checked = data.record_voice;
                 document.getElementById('cron-play-toggle').checked = data.cron_enabled;
                 document.getElementById('time-play-toggle').checked = data.time_enabled;
                 document.getElementById('duck-scale-text').innerText = data.duck_scale + '%';
