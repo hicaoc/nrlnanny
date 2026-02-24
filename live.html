@@ -294,17 +294,17 @@
             gap: 2px;
         }
 
-        .topic-input input {
+        .topic-input .topic-main,
+        .topic-input .topic-sub {
             background: transparent;
             border: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             color: rgba(255, 255, 255, 0.9);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             text-align: center;
-            outline: none;
-            transition: var(--transition);
             width: 80%;
             max-width: 700px;
+            pointer-events: none;
+            user-select: none;
         }
 
         .topic-input .topic-main {
@@ -313,6 +313,7 @@
             letter-spacing: 3px;
             padding: 6px 20px;
             text-transform: uppercase;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .topic-input .topic-sub {
@@ -322,14 +323,7 @@
             padding: 4px 20px;
             color: rgba(255, 255, 255, 0.55);
             text-transform: none;
-        }
-
-        .topic-input input::placeholder {
-            color: rgba(255, 255, 255, 0.2);
-        }
-
-        .topic-input input:focus {
-            border-bottom-color: var(--accent-glow);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         /* ===== RIGHT PANEL ===== */
@@ -571,8 +565,8 @@
                 <canvas id="waveform-canvas"></canvas>
                 <button id="mute-btn" class="mute-btn" type="button">MUTE</button>
                 <div class="topic-input">
-                    <input type="text" class="topic-main" id="topic-title" placeholder="BROADCAST TOPIC" maxlength="30">
-                    <input type="text" class="topic-sub" id="topic-subtitle" placeholder="subtitle..." maxlength="60">
+                    <div class="topic-main" id="topic-title">BROADCAST TOPIC</div>
+                    <div class="topic-sub" id="topic-subtitle">Live Broadcast</div>
                 </div>
                 <div class="floating-callsign idle" id="callsign-display">STANDBY</div>
             </section>
@@ -602,6 +596,24 @@
     <script>
         // ===== Debug =====
         function dbg(msg) {}
+
+        function applyLiveTopic(title, subtitle) {
+            const titleEl = document.getElementById('topic-title');
+            const subtitleEl = document.getElementById('topic-subtitle');
+            titleEl.textContent = title || 'BROADCAST TOPIC';
+            subtitleEl.textContent = subtitle || 'Live Broadcast';
+        }
+
+        async function fetchLiveTopic() {
+            try {
+                const res = await fetch('/api/live-config?t=' + Date.now(), { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                applyLiveTopic(data.title, data.subtitle);
+            } catch (e) {
+                dbg('load live topic failed: ' + (e && e.message ? e.message : 'unknown'));
+            }
+        }
 
         // ===== State =====
         let audioCtx = null;
@@ -2191,6 +2203,8 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             el.style.transform = `translate(${dx}px, ${dy}px)`;
             el.style.textShadow = `0 0 ${20 + currentRMS * 80}px rgba(0, 210, 255, ${0.4 + currentRMS * 2}), 0 0 ${40 + currentRMS * 120}px rgba(0, 210, 255, ${0.2 + currentRMS})`;
         }
+
+        fetchLiveTopic();
     </script>
 </body>
 

@@ -50,6 +50,7 @@ func play() {
 	http.HandleFunc("/api/status", apiStatus)
 	http.HandleFunc("/api/music", apiMusic)
 	http.HandleFunc("/api/control", apiControl)
+	http.HandleFunc("/api/live-config", apiLiveConfig)
 	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("pong"))
@@ -270,6 +271,25 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func apiLiveConfig(w http.ResponseWriter, r *http.Request) {
+	title := strings.TrimSpace(conf.System.LiveTitle)
+	subtitle := strings.TrimSpace(conf.System.LiveSubtitle)
+
+	if title == "" {
+		title = "BROADCAST TOPIC"
+	}
+	if subtitle == "" {
+		subtitle = "Live Broadcast"
+	}
+
+	data := map[string]string{
+		"title":    title,
+		"subtitle": subtitle,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
 }
 
 // 列出所有日期目录（如 2025-10-13）

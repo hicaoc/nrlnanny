@@ -33,6 +33,8 @@ type config struct {
 		RecoderFilePath string  `yaml:"RecoderFilePath" json:"Path"`
 		CronString      string  `yaml:"CronString" json:"cronString"`
 		WebPort         string  `yaml:"WebPort" json:"web_port"`
+		LiveTitle       string  `yaml:"LiveTitle" json:"live_title"`
+		LiveSubtitle    string  `yaml:"LiveSubtitle" json:"live_subtitle"`
 	} `yaml:"System" json:"system"`
 }
 

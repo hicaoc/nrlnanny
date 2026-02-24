@@ -10,3 +10,5 @@ System:
     CronString: "* * * * *"  # 播放周期配置，linux cron格式
     AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名
     WebPort : "8080"  # 监听端口
+    LiveTitle: "BROADCAST TOPIC" # live页面主标题
+    LiveSubtitle: "Live Broadcast" # live页面副标题
