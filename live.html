@@ -479,6 +479,68 @@
             display: block;
         }
 
+        .overlay-clock {
+            margin-top: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            user-select: none;
+        }
+
+        .overlay-clock .clock-hms {
+            font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: clamp(2.4rem, 7vw, 4.8rem);
+            font-weight: 400;
+            letter-spacing: 4px;
+            color: #00d2ff;
+            text-shadow:
+                0 0 6px #00d2ff,
+                0 0 18px #00d2ff,
+                0 0 40px rgba(0, 210, 255, 0.6),
+                0 0 80px rgba(0, 210, 255, 0.25);
+            line-height: 1;
+        }
+
+        .overlay-clock .clock-hms .colon {
+            display: inline-block;
+            animation: colon-blink 1s step-start infinite;
+            opacity: 1;
+            margin: 0 1px;
+        }
+
+        .overlay-clock .clock-time {
+            font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: clamp(2.6rem, 7vw, 5rem);
+            font-weight: 400;
+            letter-spacing: 4px;
+            color: #00d2ff;
+            text-shadow:
+                0 0 6px #00d2ff,
+                0 0 18px #00d2ff,
+                0 0 40px rgba(0, 210, 255, 0.6),
+                0 0 80px rgba(0, 210, 255, 0.25);
+            line-height: 1;
+            text-align: center;
+        }
+
+        .overlay-clock .clock-date {
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: clamp(1rem, 2.6vw, 1.5rem);
+            letter-spacing: 3px;
+            color: rgba(0, 210, 255, 0.45);
+            text-shadow:
+                0 0 8px rgba(0, 210, 255, 0.3),
+                0 0 20px rgba(0, 210, 255, 0.15);
+            text-align: center;
+        }
+
+        @keyframes colon-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.15; }
+        }
+
         @media (max-width: 640px) {
             body {
                 height: auto;
@@ -621,6 +683,12 @@
             <span class="title-sub" id="overlay-subtitle">Live Broadcast</span>
         </div>
         <button class="start-btn" id="start-btn">START LISTENING</button>
+        <div class="overlay-clock">
+            <div class="clock-time" id="clock-time">
+                <span id="clock-h">00</span><span class="colon">:</span><span id="clock-m">00</span><span class="colon">:</span><span id="clock-s">00</span>
+            </div>
+            <div class="clock-date" id="clock-date"></div>
+        </div>
     </div>
 
     <script>
@@ -2237,6 +2305,24 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             el.style.transform = `translate(${dx}px, ${dy}px)`;
             el.style.textShadow = `0 0 ${20 + currentRMS * 80}px rgba(0, 210, 255, ${0.4 + currentRMS * 2}), 0 0 ${40 + currentRMS * 120}px rgba(0, 210, 255, ${0.2 + currentRMS})`;
         }
+
+        // ===== Overlay Clock =====
+        (function startOverlayClock() {
+            const elH = document.getElementById('clock-h');
+            const elM = document.getElementById('clock-m');
+            const elS = document.getElementById('clock-s');
+            const elD = document.getElementById('clock-date');
+            function pad(n) { return n.toString().padStart(2, '0'); }
+            function tick() {
+                const now = new Date();
+                elH.textContent = pad(now.getHours());
+                elM.textContent = pad(now.getMinutes());
+                elS.textContent = pad(now.getSeconds());
+                elD.textContent = now.getFullYear() + ' · ' + pad(now.getMonth() + 1) + ' · ' + pad(now.getDate());
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
 
         fetchLiveTopic();
     </script>
