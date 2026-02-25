@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os/exec"
 	"time"
 )
 
@@ -34,7 +32,6 @@ func main() {
 	cpuid = calculateCpuId(fmt.Sprintf("%s-%d", conf.System.Callsign, conf.System.SSID))
 
 	go StartRecoder()
-	go MicRun()
 
 	// go newplay() // 本地监听已通过浏览器实现，不再需要本地音频输出
 
@@ -55,9 +52,7 @@ func main() {
 
 	go udpClient()
 
-	url := fmt.Sprintf("http://localhost:%s", conf.System.WebPort)
-	log.Printf("🌐 正在自动打开浏览器访问: %s", url)
-	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	go MicRun()
 
 	select {}
 }

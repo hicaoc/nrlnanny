@@ -3,8 +3,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
+	"os/exec"
 	"time"
 	"unsafe"
 
@@ -19,6 +21,11 @@ type FilterState struct {
 
 // MicRun 启动麦克风采集 (Windows WASAPI)
 func MicRun() {
+
+	url := fmt.Sprintf("http://localhost:%s", conf.System.WebPort)
+	log.Printf("🌐 正在自动打开浏览器访问: %s", url)
+	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+
 	for {
 		if !isRecordMicEnabled() {
 			<-recordToggleChan
