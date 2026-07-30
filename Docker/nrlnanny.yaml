@@ -4,8 +4,9 @@ System:
     Port: "60050"  # 服务器端口
     Callsign: "RECORD"  # 虚拟设备呼号
     SSID: 250  # 虚拟设备SSID
+    SendOpus: false # true: Opus 16kHz/type 8, false: G.711 A-law 8kHz/type 1
     music_file_Path: "./music"
-    AudioFilePath : "./audio" # wav音频文件路径   
+    AudioFilePath : "./audio" # WAV/MP3/FLAC 定时音频目录
     RecoderFilePath: "./recoder"  # 录音文件保存路径
     CronString: "* * * * *"  # 播放周期配置，linux cron格式
     AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名

@@ -4,6 +4,7 @@ package main
 
 import (
 	"log"
+	"sync"
 
 	"github.com/gen2brain/malgo"
 )
@@ -27,8 +28,13 @@ func MicRun() {
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = malgo.FormatS16
 	deviceConfig.Capture.Channels = 1
-	deviceConfig.SampleRate = 8000
+	// Keep the capture source at the native NRL Opus rate. G.711 mode is
+	// downsampled only after the final mix, so enabling Opus preserves 16 kHz.
+	deviceConfig.SampleRate = opusSampleRate
 	deviceConfig.Alsa.NoMMap = 1 // 某些Linux设备需要
+
+	var captureMu sync.Mutex
+	var captureBuffer []int
 
 	// 3. 定义数据回调
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
@@ -55,13 +61,17 @@ func MicRun() {
 			data[i] = int(val)
 		}
 
-		// 写入全局变量 micPCM
-		// 非阻塞写入，防止阻塞回调
-		select {
-		case micPCM <- [][]int{data}:
-		default:
-			// log.Println("Mic buffer full, dropping frames")
+		captureMu.Lock()
+		captureBuffer = append(captureBuffer, data...)
+		for len(captureBuffer) >= opusFrameSamples {
+			frame := append([]int(nil), captureBuffer[:opusFrameSamples]...)
+			captureBuffer = captureBuffer[opusFrameSamples:]
+			select {
+			case micPCM <- [][]int{frame}:
+			default:
+			}
 		}
+		captureMu.Unlock()
 	}
 
 	// 4. 初始化设备
@@ -87,7 +97,7 @@ func MicRun() {
 				return
 			}
 			started = true
-			log.Println("✅ 麦克风采集已启动 (Malgo/Miniaudio, 8000Hz, S16, Mono)")
+			log.Println("✅ 麦克风采集已启动 (Malgo/Miniaudio, 16000Hz, S16, Mono)")
 			return
 		}
 		if started {

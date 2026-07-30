@@ -100,7 +100,11 @@ func NRL21parser(nrl *NRL21packet) {
 	case 0: //控制指令，用户远程控制设备
 
 	case 1: //G711音频数据
-		PlayAndSaveVoice(nrl)
+		pcm := make([]int16, len(nrl.DATA))
+		for i, sample := range nrl.DATA {
+			pcm[i] = alaw2linear(sample)
+		}
+		PlayAndSaveVoice(nrl, pcm)
 
 	case 2: // 心跳
 		//log.Printf("recive heartbeat:%v-%v\n", nrl.CallSign, nrl.SSID)
@@ -118,6 +122,12 @@ func NRL21parser(nrl *NRL21packet) {
 	case 7: //设备端操作指令
 
 	case 8: // Opus音频数据
+		pcm8, err := decodeOpusVoice(nrl)
+		if err != nil {
+			log.Printf("[%s-%d] Opus decode failed: %v", nrl.CallSign, nrl.SSID, err)
+			return
+		}
+		PlayAndSaveVoice(nrl, pcm8)
 
 	case 9: //服务器互联
 
@@ -233,7 +243,7 @@ func NRL21parser(nrl *NRL21packet) {
 
 }
 
-func PlayAndSaveVoice(nrl *NRL21packet) {
+func PlayAndSaveVoice(nrl *NRL21packet, pcm []int16) {
 
 	if nrl.CallSign != lastcallsign || nrl.SSID != lastssid || time.Since(lasttime) > time.Second*2 {
 		// fmt.Println()
@@ -279,14 +289,9 @@ func PlayAndSaveVoice(nrl *NRL21packet) {
 	lastcallsign = nrl.CallSign
 	lastssid = nrl.SSID
 
-	//pcmbuffer := make([]int16, len(nrl.DATA))
-
-	chunkBytes := make([]byte, len(nrl.DATA)*2)
-
-	for i := range nrl.DATA {
-		//pcmbuffer[i] = alaw2linear(nrl.DATA[i])
-		binary.LittleEndian.PutUint16(chunkBytes[i*2:], uint16(alaw2linear(nrl.DATA[i])))
-
+	chunkBytes := make([]byte, len(pcm)*2)
+	for i, sample := range pcm {
+		binary.LittleEndian.PutUint16(chunkBytes[i*2:], uint16(sample))
 	}
 
 	//log.Println("play voice", nrl.CallSign, nrl.SSID)

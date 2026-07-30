@@ -5,62 +5,20 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
-	"os"
-
-	"github.com/hajimehoshi/go-mp3"
 )
 
 func ReadMP3() {
-	file, err := os.Open(conf.System.AudioFile)
+	pcm, err := decodeAudioFile(conf.System.AudioFile)
 	if err != nil {
-		fmt.Println("Error opening mp3 audio file:", err)
-		panic(err)
+		log.Printf("读取 MP3 文件失败 %s: %v", conf.System.AudioFile, err)
+		return
 	}
-	defer file.Close()
-
-	// 创建 MP3 解码器
-	decoder, err := mp3.NewDecoder(file)
-	if err != nil {
-		fmt.Println("Error creating mp3 decoder:", err)
-		panic(err)
+	for i := 0; i < len(pcm); i += opusFrameSamples {
+		end := min(i+opusFrameSamples, len(pcm))
+		chunk := make([]int, opusFrameSamples)
+		copy(chunk, pcm[i:end])
+		cronPCM <- [][]int{chunk}
 	}
-
-	log.Printf("Sample Rate: %d Hz\n", decoder.SampleRate())
-
-	log.Printf("Length (in samples): %d\n", decoder.Length())
-
-	// 准备缓冲区来存储 PCM 数据
-	const bufferSize = 4096
-	pcmBuf := make([]byte, bufferSize)
-
-	// 创建一个切片来保存所有 PCM 样本（可选：用于保存或写入 WAV）
-	var allSamples []byte
-
-	// 循环读取 PCM 数据
-	for {
-		n, err := decoder.Read(pcmBuf)
-		if n > 0 {
-			// 复制已读取的样本
-			allSamples = append(allSamples, pcmBuf[:n]...)
-		}
-		if err != nil {
-			break // 包括 io.EOF 在内的错误都表示结束
-		}
-	}
-
-	pcmSamples, err := BytesToInt16(allSamples)
-	if err != nil {
-		fmt.Println("Error converting bytes to int16:", err, len(allSamples))
-	}
-
-	log.Printf("总共解码了 %d 个 PCM 样本\n", len(allSamples))
-
-	// 示例：打印前 10 个样本
-	log.Printf("前 10 个 PCM 样本: ")
-	for i := 0; i < min(10, len(pcmSamples)); i++ {
-		log.Printf("%d ", allSamples[i])
-	}
-
 }
 
 // 辅助函数：保存 PCM 数据为 WAV 文件

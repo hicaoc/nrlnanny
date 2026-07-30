@@ -8,17 +8,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-audio/audio"
-	"github.com/go-audio/wav"
 )
 
 var (
-	MusicfilenameRegex = regexp.MustCompile(`-(\d{4})\.wav$`)
+	MusicfilenameRegex = regexp.MustCompile(`(?i)-(\d{4})\.(wav|mp3|flac)$`)
 )
 
 // 全局状态
@@ -28,7 +25,7 @@ type MusicQueue struct {
 }
 
 var (
-	trackedMusicFiles = make(map[string]MusicFileInfo) // 跟踪所有有效 .wav 文件
+	trackedMusicFiles = make(map[string]MusicFileInfo) // 跟踪所有支持的音频文件
 	musicstateMu      sync.RWMutex                     // 读写锁
 	currentQueue      MusicQueue
 	currentPlayingID  int = -1
@@ -69,7 +66,7 @@ func playMusic() {
 	}
 
 	if !Exist(conf.System.MusicFilePath) {
-		if err := os.MkdirAll(conf.System.AudioFilePath, 0755); err != nil {
+		if err := os.MkdirAll(conf.System.MusicFilePath, 0755); err != nil {
 			log.Printf("轮播目录 %s 不存在，并且创建失败: %v\n", conf.System.MusicFilePath, err)
 			return
 		}
@@ -98,7 +95,7 @@ func fullRescanMusic(dir string) {
 	var files []MusicFileInfo
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(strings.ToLower(info.Name()), ".wav") {
+		if err != nil || info.IsDir() || !isSupportedAudioFile(info.Name()) {
 			return nil
 		}
 
@@ -284,46 +281,20 @@ func playNextMusic() {
 		// Update current playing highlight state
 		updateMusicList(queue, currentPlayingID)
 
-		updateMusicList(queue, currentPlayingID)
-
-		// Streaming read and play
-		f, err := os.Open(fileToPlay.Path)
+		pcm, err := decodeAudioFile(fileToPlay.Path)
 		if err != nil {
-			log.Printf("❌ 无法打开音乐文件: %v", err)
+			log.Printf("❌ 无法解码音乐文件 %s: %v", fileToPlay.Path, err)
 			handleMusicFileRemoved(fileToPlay.Path)
 			continue
-		}
-
-		decoder := wav.NewDecoder(f)
-		if !decoder.IsValidFile() || decoder.Format().NumChannels != 1 || decoder.BitDepth != 16 || decoder.SampleRate != 8000 {
-			log.Printf("❌ 无效或不支持的 WAV 格式 (仅支持 8k/16bit/单声道): %s", fileToPlay.Path)
-			f.Close()
-			handleMusicFileRemoved(fileToPlay.Path)
-			continue
-		}
-
-		// Get total duration for percentage calculation
-		stat, _ := f.Stat()
-		fileSize := stat.Size()
-		// Simple estimation: (File Size - WAV Header ~44 bytes) / (2 bytes per sample)
-		totalSamples := int((fileSize - 44) / 2)
-		if totalSamples <= 0 {
-			totalSamples = 1 // Prevent division by zero
 		}
 
 		playstatus := conf.System.MusicPlaying
-		buf := &audio.IntBuffer{Data: make([]int, 160), Format: decoder.Format()}
 		processedSamples := 0
 		percent := 0
 
 	tag:
-		for {
-			n, err := decoder.PCMBuffer(buf)
-			if err != nil || n == 0 {
-				break tag
-			}
-
-			percent = processedSamples * 100 / totalSamples
+		for i := 0; i < len(pcm); i += opusFrameSamples {
+			percent = processedSamples * 100 / len(pcm)
 			if percent > 100 {
 				percent = 100
 			}
@@ -348,14 +319,15 @@ func playNextMusic() {
 
 			if !playstatus {
 				time.Sleep(time.Millisecond * 100)
-				// We don't continue because we still have the chunk in 'buf'.
-				// But PCMBuffer already read it. We need to wait until playstatus is true.
+				// Keep this chunk pending until playback resumes.
 				for !playstatus {
 					select {
 					case <-nextmusic:
 						break tag
 					case <-pausemusic:
 						playstatus = !playstatus
+						conf.System.MusicPlaying = playstatus
+						saveConfig()
 						// Report state change immediately
 						updatePlayStatus(fmt.Sprintf("%s: %s (ID: %04d) [%d%%]",
 							map[bool]string{true: "Playing", false: "Paused"}[playstatus],
@@ -369,16 +341,15 @@ func playNextMusic() {
 				}
 			}
 
-			// Send chunk to PCM channel
-			// Note: data is in buf.Data[:n]
-			chunkData := make([]int, n)
-			copy(chunkData, buf.Data[:n])
-			musicPCM <- [][]int{chunkData}
+			end := min(i+opusFrameSamples, len(pcm))
+			chunk := make([]int, opusFrameSamples)
+			copy(chunk, pcm[i:end])
+			musicPCM <- [][]int{chunk}
 
-			processedSamples += n
+			processedSamples += end - i
 
 			// Throttle status updates
-			if processedSamples%8000 == 0 { // Every ~1 second
+			if processedSamples%playbackSampleRate == 0 { // Every ~1 second
 				statusText := fmt.Sprintf("Playing: %s (ID: %04d) [%d%%]", filepath.Base(fileToPlay.Path), fileToPlay.ID, percent)
 				updatePlayStatus(statusText, percent, conf.System.MusicPlaying)
 			}
@@ -387,10 +358,7 @@ func playNextMusic() {
 			default:
 			}
 		}
-		f.Close()
-
 		// 稍微暂停一下，避免连续播放太紧凑
-		time.Sleep(1 * time.Second)
 		time.Sleep(1 * time.Second)
 	}
 }
@@ -418,7 +386,7 @@ func watchMusicFilesIncremental(dir string) {
 			}
 
 			path := event.Name
-			if !strings.HasSuffix(strings.ToLower(path), ".wav") {
+			if !isSupportedAudioFile(path) {
 				continue
 			}
 

@@ -10,11 +10,12 @@ System:
     DuckMicPCM: false # 是否降低麦克风音量
     DuckMusicPCM: true # 是否降低音乐音量
     RecordMic: false # 是否启用麦克风录音
+    SendOpus: false # true: Opus 16kHz/type 8, false: G.711 A-law 8kHz/type 1
     EnableMusic: true # 是否启用音乐播放
     EnableCron: true # 是否启用信标播放
     EnableTimePlay: true # 是否启用定时点播放
     MusicPlaying: true # 是否处于播放状态
-    AudioFilePath : "./audio" # wav音频文件路径   
+    AudioFilePath : "./audio" # WAV/MP3/FLAC 定时音频目录
     RecoderFilePath: "./recoder"  # 录音文件保存路径
     CronString: "* * * * *"  # 播放周期配置，linux cron格式
     AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名

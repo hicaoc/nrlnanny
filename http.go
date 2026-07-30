@@ -74,6 +74,9 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	w.Write(content)
 }
 
@@ -157,6 +160,7 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 		"duck_music_pcm": conf.System.DuckMusicPCM,
 		"record_mic":     isRecordMicEnabled(),
 		"record_voice":   isRecordingEnabled(),
+		"send_opus":      isSendOpusEnabled(),
 		"cron_enabled":   isCronEnabled(),
 		"time_enabled":   isTimeEnabled(),
 	}
@@ -246,6 +250,11 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 			recorder.Stop()
 		}
 		log.Printf("Voice Recording updated to: %v", conf.System.RecordVoice)
+		saveConfig()
+	case "send_opus":
+		conf.System.SendOpus = !conf.System.SendOpus
+		setSendOpusEnabled(conf.System.SendOpus)
+		log.Printf("Voice codec updated to: %s", map[bool]string{true: "Opus 16 kHz", false: "G.711 8 kHz"}[conf.System.SendOpus])
 		saveConfig()
 	case "music_toggle":
 		conf.System.MusicPlaying = !conf.System.MusicPlaying

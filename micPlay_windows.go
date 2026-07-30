@@ -290,7 +290,7 @@ func runCapture() error {
 	}
 	defer audioClient.Stop()
 
-	log.Printf("✅ 麦克风采集已启动 (Windows WASAPI, %dHz → 8000Hz 单声道)",
+	log.Printf("✅ 麦克风采集已启动 (Windows WASAPI, %dHz → 16000Hz 单声道)",
 		format.NSamplesPerSec)
 
 	sourceSampleRate := int(format.NSamplesPerSec)
@@ -307,7 +307,7 @@ func runCapture() error {
 
 	// 缓冲区：累积重采样后的 int 数据
 	var outputBuffer []int
-	targetSampleRate := 8000
+	targetSampleRate := opusSampleRate
 
 	// 8. 主循环
 	for {
@@ -360,12 +360,12 @@ func runCapture() error {
 				noDC := removeDCOffset(rawAccumBuffer, &lastIn, &lastOut)
 
 				// 4. 抗混叠低通滤波
-				cutoffFreq := 3400.0 // 降低截止频率更加丝滑
+				cutoffFreq := 7000.0 // 16 kHz Opus keeps wideband speech content
 				nyquistIn := float64(sourceSampleRate) / 2.0
 				cutoffRatio := cutoffFreq / nyquistIn
 				filtered := lowPassFilter(noDC, lpState, cutoffRatio)
 
-				// 5. 重采样到 8000Hz
+				// 5. 重采样到 16000Hz
 				resampled := cubicResample(filtered, sourceSampleRate, targetSampleRate, &resamplePhase)
 
 				// 转为 []int 并添加到输出缓冲
@@ -377,19 +377,19 @@ func runCapture() error {
 				rawAccumBuffer = rawAccumBuffer[:0]
 			}
 
-			// 6. 分块发送（160 点/帧，约 20ms @ 8000Hz）
-			for len(outputBuffer) >= 160 {
+			// 6. 分块发送（320 点/帧，20ms @ 16000Hz）
+			for len(outputBuffer) >= opusFrameSamples {
 				if !isRecordMicEnabled() {
 					outputBuffer = outputBuffer[:0]
 					break
 				}
-				chunk := make([]int, 160)
-				copy(chunk, outputBuffer[:160])
+				chunk := make([]int, opusFrameSamples)
+				copy(chunk, outputBuffer[:opusFrameSamples])
 				select {
 				case micPCM <- [][]int{chunk}:
 				default:
 				}
-				outputBuffer = outputBuffer[160:]
+				outputBuffer = outputBuffer[opusFrameSamples:]
 			}
 		}
 

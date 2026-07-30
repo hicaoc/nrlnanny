@@ -45,9 +45,12 @@ find . -type f -size -47000c -delete
 - **Callsign**: 虚拟盒子的所有者呼号，例如 `"BH4RPN"`
 - **SSID**: 虚拟盒子SSID（目前不支持修改）， 内置`250`
 - **Volume**: 麦克风通话的音量，例如 `0.5`
+- **SendOpus**: 发送编码开关；`true` 使用16 kHz Opus/type 8，`false` 使用8 kHz G.711 A-law/type 1
 - **music_file_Path**: 音乐文件路径，例如 `"./music"`
 - **AudioFile**: 信标文件路径和文件名，如果为空则不播放信标，例如 `"./test.wav"`
 - **RecoderFilePath**: WAV录音保存路径，例如 `"./recoder"`
+
+信标、定时播放和音乐轮播均支持 WAV、MP3、FLAC。音频会自动混合为单声道并重采样到 16 kHz；发送 G711 时再降采样到 8 kHz。
 - **CronString**: CRON格式的定时配置，默认是每10分钟一次，例如 `"*/10 * * * *"`
 - **WebPort**: 网页监听端口，例如 `"8080"`
 

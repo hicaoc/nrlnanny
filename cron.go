@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -76,46 +74,42 @@ func (o sendvoice) Run() {
 	log.Printf("\n读取信标文件，准备播放信标...%s\n", conf.System.AudioFile)
 	updatePlayStatus("Beacon Playing...", 0, true)
 
-	switch strings.ToLower(filepath.Ext(conf.System.AudioFile)) {
-	case ".wav":
-
-		wav := readWAV(conf.System.AudioFile)
-		// pcmbuff := make([][]int, 1) // 移除外部定义，避免并发竞争
-
-		for i := 0; i < len(wav); i += 160 {
-			if !isCronEnabled() {
-				return
-			}
-			if i+160 < len(wav) {
-				// 每次创建新的切片结构，防止引用被覆盖
-				data := [][]int{wav[i : i+160]}
-				cronPCM <- data
-			}
-		}
-
-		//sendG711(readWAV(conf.System.AudioFile))
-
-	case ".mp3":
-		ReadMP3()
+	pcm, err := decodeAudioFile(conf.System.AudioFile)
+	if err != nil {
+		log.Printf("读取信标音频失败: %v", err)
+		updatePlayStatus("Beacon decode failed", 0, false)
+		return
 	}
-
+	for i := 0; i < len(pcm); i += opusFrameSamples {
+		if !isCronEnabled() {
+			return
+		}
+		end := min(i+opusFrameSamples, len(pcm))
+		chunk := make([]int, opusFrameSamples)
+		copy(chunk, pcm[i:end])
+		cronPCM <- [][]int{chunk}
+	}
 }
 
 func recivePCM() {
 	ticket := time.NewTicker(time.Microsecond * 20000) // 20ms
 	defer ticket.Stop()
 
-	pcmbuf := make([]int, 160)
-
 	// 标记是否有麦克风或信标活动
 	var hasBeaconActivity bool
 	volumeScale := 1.0
+	wasSending := false
+	lastOpusMode := false
+	pcm8 := make([]int, 160)
+	pcm16 := make([]int, opusFrameSamples)
 
 	for range ticket.C {
-		// 1. 每一帧开始前必须重置缓冲区为静音，防止残留
-		for i := range pcmbuf {
-			pcmbuf[i] = 0
+		sendOpus := isSendOpusEnabled()
+		pcmbuf := pcm8
+		if sendOpus {
+			pcmbuf = pcm16
 		}
+		clear(pcmbuf)
 
 		hasBeaconActivity = false
 
@@ -123,11 +117,7 @@ func recivePCM() {
 		select {
 		case wav := <-cronPCM:
 			hasBeaconActivity = true
-			for i, v := range wav[0] {
-				if i < len(pcmbuf) {
-					pcmbuf[i] += v
-				}
-			}
+			mix16KSource(pcmbuf, wav[0], 1, sendOpus)
 		default:
 		}
 
@@ -135,11 +125,7 @@ func recivePCM() {
 		select {
 		case wav := <-timePCM:
 			hasBeaconActivity = true
-			for i, v := range wav[0] {
-				if i < len(pcmbuf) {
-					pcmbuf[i] += v
-				}
-			}
+			mix16KSource(pcmbuf, wav[0], 1, sendOpus)
 		default:
 		}
 
@@ -153,12 +139,7 @@ func recivePCM() {
 				volumeScale = conf.System.DuckScale // 降低一个维度
 			}
 
-			for i, v := range wav[0] {
-				if i < len(pcmbuf) {
-					// 应用音量缩放
-					pcmbuf[i] += int(float64(v) * volumeScale)
-				}
-			}
+			mix16KSource(pcmbuf, wav[0], volumeScale, sendOpus)
 		default:
 		}
 
@@ -169,11 +150,7 @@ func recivePCM() {
 			if hasBeaconActivity && conf.System.DuckMicPCM {
 				volumeScale = conf.System.DuckScale // 降低一个维度
 			}
-			for i, v := range wav[0] {
-				if i < len(pcmbuf) {
-					pcmbuf[i] += int(float64(v) * volumeScale)
-				}
-			}
+			mix16KSource(pcmbuf, wav[0], volumeScale, sendOpus)
 		default:
 		}
 
@@ -187,9 +164,51 @@ func recivePCM() {
 		}
 
 		if !isSilence {
-			packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, G711Encode(pcmbuf))
-			dev.udpSocket.Write(packet)
+			var packet []byte
+			if sendOpus {
+				opusData, err := encodeOpusVoice(intsToInt16WithVolume(pcmbuf, conf.System.Volume), !wasSending || !lastOpusMode)
+				if err != nil {
+					log.Printf("Opus encode failed: %v", err)
+					wasSending = false
+					continue
+				}
+				packet = encodeNRL21(conf.System.Callsign, conf.System.SSID, 8, 250, cpuid, opusData)
+			} else {
+				packet = encodeNRL21(conf.System.Callsign, conf.System.SSID, 1, 250, cpuid, G711Encode(pcmbuf))
+			}
+			if _, err := dev.udpSocket.Write(packet); err != nil {
+				log.Printf("send voice failed: %v", err)
+			}
+			wasSending = true
+			lastOpusMode = sendOpus
+		} else {
+			wasSending = false
 		}
 
+	}
+}
+
+func mix16KSource(dst, source []int, scale float64, targetOpus bool) {
+	if targetOpus {
+		mixPCMSource(dst, source, scale)
+		return
+	}
+	limit := len(source) / 2
+	if limit > len(dst) {
+		limit = len(dst)
+	}
+	for i := 0; i < limit; i++ {
+		sample := (source[i*2] + source[i*2+1]) / 2
+		dst[i] += int(float64(sample) * scale)
+	}
+}
+
+func mixPCMSource(dst, source []int, scale float64) {
+	limit := len(source)
+	if limit > len(dst) {
+		limit = len(dst)
+	}
+	for i := 0; i < limit; i++ {
+		dst[i] += int(float64(source[i]) * scale)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 )
 
 var (
-	filenameRegex = regexp.MustCompile(`-(\d{2})(\d{2})\.wav$`)
+	filenameRegex = regexp.MustCompile(`(?i)-(\d{2})(\d{2})\.(wav|mp3|flac)$`)
 )
 
 type AudioFileInfo struct {
@@ -25,7 +24,7 @@ type AudioFileInfo struct {
 
 // 全局状态（建议后续封装成 Scheduler 结构体）
 var (
-	trackedFiles   = make(map[string]AudioFileInfo) // 跟踪所有有效 .wav 文件
+	trackedFiles   = make(map[string]AudioFileInfo) // 跟踪所有支持的音频文件
 	scheduledTasks = make(map[string]*time.Timer)   // 文件路径 -> Timer（用于取消）
 	stateMu        sync.RWMutex                     // 读写锁
 )
@@ -82,7 +81,7 @@ func fullRescan(dir string) {
 	var added []AudioFileInfo
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.HasSuffix(strings.ToLower(info.Name()), ".wav") {
+		if err != nil || info.IsDir() || !isSupportedAudioFile(info.Name()) {
 			return nil
 		}
 
@@ -139,28 +138,7 @@ func fullRescan(dir string) {
 			if !isTimeEnabled() {
 				return
 			}
-			data := readWAV(file.Path)
-
-			// pcmbuff := make([][]int, 1)
-
-			for i := 0; i < len(data); i += 160 {
-				if !isTimeEnabled() {
-					return
-				}
-				if i+160 < len(data) {
-					// 每次创建新的切片结构，防止引用被覆盖
-					chunk := [][]int{data[i : i+160]}
-					timePCM <- chunk
-				}
-
-				percent := (i + 160) * 100 / len(data)
-				// fmt.Printf("\r目录音频播放进度: %d%%", percent)
-				updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", file.Path, percent), percent, true)
-
-			}
-
-			// fmt.Println()
-			//log.Println("目录音频播放完成")
+			playScheduledAudio(file.Path)
 		})
 
 		scheduledTasks[file.Path] = timer
@@ -198,7 +176,7 @@ func watchFilesIncremental(dir string) {
 			}
 
 			path := event.Name
-			if !strings.HasSuffix(strings.ToLower(path), ".wav") {
+			if !isSupportedAudioFile(path) {
 				continue
 			}
 
@@ -261,28 +239,7 @@ func handleFileAdded(path string) {
 		if !isTimeEnabled() {
 			return
 		}
-		data := readWAV(path)
-
-		// pcmbuff := make([][]int, 1)
-
-		for i := 0; i < len(data); i += 160 {
-			if !isTimeEnabled() {
-				return
-			}
-			if i+160 < len(data) {
-				// 每次创建新的切片结构，防止引用被覆盖
-				chunk := [][]int{data[i : i+160]}
-				timePCM <- chunk
-			}
-
-			percent := (i + 160) * 100 / len(data)
-			// fmt.Printf("\r目录音频播放进度: %d%%", percent)
-			updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent), percent, true)
-
-		}
-
-		// fmt.Println()
-		//log.Println("目录音频播放完成")
+		playScheduledAudio(path)
 	})
 
 	scheduledTasks[path] = timer
@@ -341,6 +298,25 @@ func clearTimeSchedules() {
 	}
 	scheduledTasks = make(map[string]*time.Timer)
 	updateScheduleList(trackedFiles)
+}
+
+func playScheduledAudio(path string) {
+	pcm, err := decodeAudioFile(path)
+	if err != nil {
+		log.Printf("❌ 无法解码定时音频 %s: %v", path, err)
+		return
+	}
+	for i := 0; i < len(pcm); i += opusFrameSamples {
+		if !isTimeEnabled() {
+			return
+		}
+		end := min(i+opusFrameSamples, len(pcm))
+		chunk := make([]int, opusFrameSamples)
+		copy(chunk, pcm[i:end])
+		timePCM <- [][]int{chunk}
+		percent := end * 100 / len(pcm)
+		updatePlayStatus(fmt.Sprintf("Scheduled Play: %s [%d%%]", path, percent), percent, true)
+	}
 }
 
 // 辅助函数

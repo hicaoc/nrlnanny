@@ -585,6 +585,13 @@
                                 </label>
                             </div>
                             <div class="switch-container compact">
+                                <span class="switch-label">Opus TX (16 kHz)</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="opus-toggle" onclick="control('send_opus')">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="switch-container compact">
                                 <span class="switch-label">Beacon Cron</span>
                                 <label class="switch">
                                     <input type="checkbox" id="cron-play-toggle" onclick="control('cron_toggle')">
@@ -649,6 +656,7 @@
                 document.getElementById('duck-mic-toggle').checked = data.duck_mic_pcm;
                 document.getElementById('record-mic-toggle').checked = data.record_mic;
                 document.getElementById('record-voice-toggle').checked = data.record_voice;
+                document.getElementById('opus-toggle').checked = data.send_opus;
                 document.getElementById('cron-play-toggle').checked = data.cron_enabled;
                 document.getElementById('time-play-toggle').checked = data.time_enabled;
                 document.getElementById('duck-scale-text').innerText = data.duck_scale + '%';

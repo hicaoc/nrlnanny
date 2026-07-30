@@ -14,6 +14,7 @@ var (
 )
 
 var recordMicEnabled uint32 = 0
+var sendOpusEnabled uint32 = 0
 var recordingEnabled uint32 = 1
 var musicEnabled uint32 = 1
 var cronEnabled uint32 = 1
@@ -26,6 +27,18 @@ var timeToggleChan = make(chan struct{}, 1)
 
 func isRecordMicEnabled() bool {
 	return atomic.LoadUint32(&recordMicEnabled) == 1
+}
+
+func isSendOpusEnabled() bool {
+	return atomic.LoadUint32(&sendOpusEnabled) == 1
+}
+
+func setSendOpusEnabled(enabled bool) {
+	if enabled {
+		atomic.StoreUint32(&sendOpusEnabled, 1)
+	} else {
+		atomic.StoreUint32(&sendOpusEnabled, 0)
+	}
 }
 
 func setRecordMicEnabled(enabled bool) {
