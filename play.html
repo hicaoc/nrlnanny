@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>录音文件浏览器 - NRL Nanny</title>
+    <script src="/i18n.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
         rel="stylesheet">
     <style>
@@ -255,36 +256,41 @@
     </style>
 </head>
 
-<body>
+<body data-page-title="browser">
     <div class="container">
         <header class="glass header-bar">
             <div class="header-left">
-                <h1>NRL NANNY <span class="header-sub">BROWSER</span></h1>
-                <a href="/" class="nav-link">🧭 DASHBOARD</a>
-                <a href="/live" class="nav-link">📡 LIVE</a>
+                <h1>NRL NANNY <span class="header-sub" data-i18n="browser">BROWSER</span></h1>
+                <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
+                <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
+                <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
             </div>
         </header>
 
         <div id="content">
-            <div class="loading">加载中...</div>
+            <div class="loading" data-i18n="loading">加载中...</div>
         </div>
     </div>
 
     <script>
         const content = document.getElementById('content');
+        const tr = (key, values) => NRLI18n.t(key, values);
+        let currentDirectory = null;
 
         function showDirs() {
-            content.innerHTML = '<div class="loading">加载日期列表...</div>';
+            currentDirectory = null;
+            content.innerHTML = `<div class="loading">${tr('loadingDirs')}</div>`;
             fetch('/dirs')
                 .then(res => res.json())
                 .then(dirs => {
                     if (!dirs || dirs.length === 0) {
-                        content.innerHTML = '<div class="glass">暂无录音目录</div>';
+                        content.innerHTML = `<div class="glass">${tr('noDirs')}</div>`;
                         return;
                     }
                     content.innerHTML = `
                         <div class="glass">
-                            <h2>选择日期目录</h2>
+                            <h2>${tr('selectDate')}</h2>
                             <ul>
                                 ${dirs.map(dir => `
                                     <li class="list-item dir-item" onclick="showFiles('${dir}')">${dir}</li>
@@ -294,19 +300,20 @@
                     `;
                 })
                 .catch(err => {
-                    content.innerHTML = `<div class="glass" style="color:#ff5252">加载目录失败: ${err.message}</div>`;
+                    content.innerHTML = `<div class="glass" style="color:#ff5252">${tr('loadDirsFailed')}: ${err.message}</div>`;
                 });
         }
 
         function showFiles(dirName) {
-            content.innerHTML = '<div class="loading">加载录音文件...</div>';
+            currentDirectory = dirName;
+            content.innerHTML = `<div class="loading">${tr('loadingFiles')}</div>`;
             fetch(`/dir/${dirName}`)
                 .then(res => res.json())
                 .then(files => {
                     content.innerHTML = `
-                        <a href="#" onclick="showDirs(); return false;" class="back-btn">← 返回日期列表</a>
+                        <a href="#" onclick="showDirs(); return false;" class="back-btn">${tr('backDates')}</a>
                         <div class="glass">
-                            <h2>目录: ${dirName}</h2>
+                            <h2>${tr('directory')}: ${dirName}</h2>
                             <ul>
                                 ${files.map(f => `
                                     <li class="list-item file-item">
@@ -316,7 +323,7 @@
                                         </div>
                                         <audio controls preload="none">
                                             <source src="${f.url}" type="audio/wav">
-                                            您的浏览器不支持 audio 标签。
+                                            ${tr('audioUnsupported')}
                                         </audio>
                                     </li>
                                 `).join('')}
@@ -325,11 +332,15 @@
                     `;
                 })
                 .catch(err => {
-                    content.innerHTML = `<div class="glass" style="color:#ff5252">加载文件失败: ${err.message}</div>`;
+                    content.innerHTML = `<div class="glass" style="color:#ff5252">${tr('loadFilesFailed')}: ${err.message}</div>`;
                 });
         }
 
         showDirs();
+        document.addEventListener('nrlnanny-language-change', () => {
+            if (currentDirectory) showFiles(currentDirectory);
+            else showDirs();
+        });
     </script>
 </body>
 

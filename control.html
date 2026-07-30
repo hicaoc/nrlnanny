@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NRL Nanny - Premium Dashboard</title>
+    <script src="/i18n.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
         rel="stylesheet">
     <style>
@@ -506,17 +507,19 @@
     </style>
 </head>
 
-<body>
+<body data-page-title="dashboard">
     <div class="container">
         <header class="glass">
             <div class="header-left">
-                <h1>NRL NANNY <span class="header-sub">DASHBOARD</span></h1>
-                <a href="/live" class="nav-link">📡 LIVE</a>
-                <a href="/play" class="nav-link">📂 BROWSER</a>
+                <h1>NRL NANNY <span class="header-sub" data-i18n="dashboard">DASHBOARD</span></h1>
+                <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
+                <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
+                <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
             </div>
             <div class="header-right">
                 <div class="system-pill"><span class="status-dot"></span><span
-                        style="font-size:0.75rem; letter-spacing:1px; color:var(--accent-success);">SYSTEM READY</span>
+                        style="font-size:0.75rem; letter-spacing:1px; color:var(--accent-success);" data-i18n="systemReady">SYSTEM READY</span>
                 </div>
             </div>
         </header>
@@ -524,13 +527,13 @@
         <div class="dashboard-grid">
             <!-- Controller -->
             <section class="glass player-controls">
-                <h2><span style="color:var(--accent-glow);">●</span> Center Stage</h2>
+                <h2><span style="color:var(--accent-glow);">●</span> <span data-i18n="centerStage">Center Stage</span></h2>
 
                 <div class="control-btns">
-                    <button class="btn-circle" onclick="control('prev')" title="Previous">⏮</button>
+                    <button class="btn-circle" onclick="control('prev')" data-i18n-title="previous" title="Previous">⏮</button>
                     <button class="btn-circle btn-main" id="btn-pause" onclick="control('pause')"
-                        title="Play/Pause">⏸</button>
-                    <button class="btn-circle" onclick="control('next')" title="Next">⏭</button>
+                        data-i18n-title="playPause" title="Play/Pause">⏸</button>
+                    <button class="btn-circle" onclick="control('next')" data-i18n-title="next" title="Next">⏭</button>
                 </div>
 
                 <div class="volume-bar">
@@ -542,7 +545,7 @@
                 </div>
 
                 <div class="playlist-card">
-                    <h2>Playlist</h2>
+                    <h2 data-i18n="playlist">Playlist</h2>
                     <div class="scroll-area" id="playlist">
                         <!-- Songs Here -->
                     </div>
@@ -552,54 +555,54 @@
             <!-- Status -->
             <aside class="status-panel">
                 <div class="glass" style="height: 100%; display: flex; flex-direction: column; gap: 24px;">
-                    <h2>Statistics</h2>
+                    <h2 data-i18n="statistics">Statistics</h2>
                     <div class="status-grid">
                         <div class="info-card">
-                            <span class="item-label">Next Beacon</span>
+                            <span class="item-label" data-i18n="nextBeacon">Next Beacon</span>
                             <span class="item-value" id="cron-info">--:--</span>
                         </div>
                         <div class="info-card">
-                            <span class="item-label">Current Task</span>
+                            <span class="item-label" data-i18n="currentTask">Current Task</span>
                             <span class="item-value" id="play-status"
-                                style="color:var(--accent-glow);">Scanning...</span>
+                                style="color:var(--accent-glow);" data-i18n="scanning">Scanning...</span>
                         </div>
                     </div>
 
                     <div class="ducking-panel">
                         <div class="controls-header" style="display:flex; justify-content:space-between; align-items:center;">
-                            <h2 style="margin-bottom:0;">Controls</h2>
+                            <h2 style="margin-bottom:0;" data-i18n="controls">Controls</h2>
                         </div>
                         <div class="switch-grid" style="margin-bottom: 12px;">
                             <div class="switch-container compact">
-                                <span class="switch-label">Mic Capture</span>
+                                <span class="switch-label" data-i18n="micCapture">Mic Capture</span>
                                 <label class="switch">
                                     <input type="checkbox" id="record-mic-toggle" onclick="control('record_mic')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="switch-container compact">
-                                <span class="switch-label">Voice Recording</span>
+                                <span class="switch-label" data-i18n="voiceRecording">Voice Recording</span>
                                 <label class="switch">
                                     <input type="checkbox" id="record-voice-toggle" onclick="control('record_voice')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="switch-container compact">
-                                <span class="switch-label">Opus TX (16 kHz)</span>
+                                <span class="switch-label" data-i18n="opusTx">Opus TX (16 kHz)</span>
                                 <label class="switch">
                                     <input type="checkbox" id="opus-toggle" onclick="control('send_opus')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="switch-container compact">
-                                <span class="switch-label">Beacon Cron</span>
+                                <span class="switch-label" data-i18n="beaconCron">Beacon Cron</span>
                                 <label class="switch">
                                     <input type="checkbox" id="cron-play-toggle" onclick="control('cron_toggle')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="switch-container compact">
-                                <span class="switch-label">Time Playback</span>
+                                <span class="switch-label" data-i18n="timePlayback">Time Playback</span>
                                 <label class="switch">
                                     <input type="checkbox" id="time-play-toggle" onclick="control('time_toggle')">
                                     <span class="slider"></span>
@@ -607,7 +610,7 @@
                             </div>
                         </div>
                         <div style="margin-top: 12px;">
-                            <span class="item-label" style="display:block; margin-bottom:8px;">Duck Scale</span>
+                            <span class="item-label" style="display:block; margin-bottom:8px;" data-i18n="duckScale">Duck Scale</span>
                             <div class="volume-bar" style="padding: 10px 15px;">
                                 <input type="range" id="duck-scale-slider" min="0" max="100" value="10"
                                     oninput="updateDuckScale(this.value)">
@@ -617,14 +620,14 @@
                         </div>
                         <div class="switch-grid" style="margin-top: 12px;">
                             <div class="switch-container compact">
-                                <span class="switch-label">Music Ducking</span>
+                                <span class="switch-label" data-i18n="musicDucking">Music Ducking</span>
                                 <label class="switch">
                                     <input type="checkbox" id="duck-music-toggle" onclick="control('duck_music_pcm')">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="switch-container compact">
-                                <span class="switch-label">Mic Ducking</span>
+                                <span class="switch-label" data-i18n="micDucking">Mic Ducking</span>
                                 <label class="switch">
                                     <input type="checkbox" id="duck-mic-toggle" onclick="control('duck_mic_pcm')">
                                     <span class="slider"></span>
@@ -716,6 +719,7 @@
             control('duck_scale', 0, val / 100);
         }
 
+        document.addEventListener('nrlnanny-language-change', updateStatus);
         updateStatus(); updateMusic();
         setInterval(updateStatus, 1000);
         setInterval(updateMusic, 3000);

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NRL Nanny - Live Broadcast</title>
+    <script src="/i18n.js"></script>
     <link rel="icon" href="data:,">
     <link rel="apple-touch-icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
@@ -631,18 +632,20 @@
     </style>
 </head>
 
-<body>
+<body data-page-title="live">
     <div class="container">
         <header class="glass">
             <div class="header-left">
-                <h1>NRL NANNY <span class="header-sub">LIVE</span></h1>
-                <a href="/" class="nav-link">🧭 DASHBOARD</a>
-                <a href="/play" class="nav-link">📂 BROWSER</a>
+                <h1>NRL NANNY <span class="header-sub" data-i18n="live">LIVE</span></h1>
+                <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
+                <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
             </div>
             <div class="header-right">
                 <div class="status-pill">
                     <span class="status-dot disconnected" id="ws-dot"></span>
-                    <span id="ws-status" style="font-size:0.7rem; letter-spacing:1px; color:var(--text-dim);">CONNECTING</span>
+                    <span id="ws-status" style="font-size:0.7rem; letter-spacing:1px; color:var(--text-dim);" data-i18n="connecting">CONNECTING</span>
                 </div>
             </div>
         </header>
@@ -651,12 +654,12 @@
             <!-- Left: Waveform + Callsign -->
             <section class="glass left-panel">
                 <canvas id="waveform-canvas"></canvas>
-                <button id="mute-btn" class="mute-btn" type="button">MUTE</button>
+                <button id="mute-btn" class="mute-btn" type="button" data-i18n="mute">MUTE</button>
                 <div class="topic-input">
-                    <div class="topic-main" id="topic-title">BROADCAST TOPIC</div>
-                    <div class="topic-sub" id="topic-subtitle">Live Broadcast</div>
+                    <div class="topic-main" id="topic-title" data-i18n="broadcastTopic">BROADCAST TOPIC</div>
+                    <div class="topic-sub" id="topic-subtitle" data-i18n="liveBroadcast">Live Broadcast</div>
                 </div>
-                <div class="floating-callsign idle" id="callsign-display">STANDBY</div>
+                <div class="floating-callsign idle" id="callsign-display" data-i18n="standby">STANDBY</div>
             </section>
 
             <!-- Right: VU + History -->
@@ -667,9 +670,9 @@
                     </div>
                 </div>
                 <div class="glass history-panel">
-                    <h2>Comm Log</h2>
+                    <h2 data-i18n="commLog">Comm Log</h2>
                     <div class="history-scroll" id="history-log">
-                        <div class="history-empty">Waiting for transmissions...</div>
+                        <div class="history-empty" data-i18n="waitingTransmissions">Waiting for transmissions...</div>
                     </div>
                 </div>
             </aside>
@@ -679,10 +682,10 @@
     <!-- Audio autoplay overlay -->
     <div class="start-overlay" id="start-overlay">
         <div class="overlay-title">
-            <span class="title-main" id="overlay-title">BROADCAST TOPIC</span>
-            <span class="title-sub" id="overlay-subtitle">Live Broadcast</span>
+            <span class="title-main" id="overlay-title" data-i18n="broadcastTopic">BROADCAST TOPIC</span>
+            <span class="title-sub" id="overlay-subtitle" data-i18n="liveBroadcast">Live Broadcast</span>
         </div>
-        <button class="start-btn" id="start-btn">START LISTENING</button>
+        <button class="start-btn" id="start-btn" data-i18n="startListening">START LISTENING</button>
         <div class="overlay-clock">
             <div class="clock-time" id="clock-time">
                 <span id="clock-h">00</span><span class="colon">:</span><span id="clock-m">00</span><span class="colon">:</span><span id="clock-s">00</span>
@@ -692,18 +695,22 @@
     </div>
 
     <script>
+        const tr = (key, values) => NRLI18n.t(key, values);
         // ===== Debug =====
         function dbg(msg) {}
 
+        let liveTopic = { title: '', subtitle: '' };
+
         function applyLiveTopic(title, subtitle) {
+            liveTopic = { title: title || '', subtitle: subtitle || '' };
             const titleEl = document.getElementById('topic-title');
             const subtitleEl = document.getElementById('topic-subtitle');
-            titleEl.textContent = title || 'BROADCAST TOPIC';
-            subtitleEl.textContent = subtitle || 'Live Broadcast';
+            titleEl.textContent = title || tr('broadcastTopic');
+            subtitleEl.textContent = subtitle || tr('liveBroadcast');
             const overlayTitle = document.getElementById('overlay-title');
             const overlaySub = document.getElementById('overlay-subtitle');
-            if (overlayTitle) overlayTitle.textContent = title || 'BROADCAST TOPIC';
-            if (overlaySub) overlaySub.textContent = subtitle || 'Live Broadcast';
+            if (overlayTitle) overlayTitle.textContent = title || tr('broadcastTopic');
+            if (overlaySub) overlaySub.textContent = subtitle || tr('liveBroadcast');
         }
 
         async function fetchLiveTopic() {
@@ -791,7 +798,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
         function applyMuteState() {
             const btn = document.getElementById('mute-btn');
             if (!btn) return;
-            btn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
+            btn.textContent = tr(isMuted ? 'unmute' : 'mute');
             btn.classList.toggle('muted', isMuted);
 
             if (audioMode === 'worklet' && playerNode && audioCtx) {
@@ -887,7 +894,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             if (audioResumeBtn) return audioResumeBtn;
             const btn = document.createElement('button');
             btn.id = 'audio-resume-btn';
-            btn.textContent = 'TAP TO RESUME AUDIO';
+            btn.textContent = tr('tapResumeAudio');
             btn.style.cssText = [
                 'position:fixed',
                 'top:12px',
@@ -1183,7 +1190,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                 if (attemptId !== wsAttemptSeq) return;
             }
 
-            document.getElementById('ws-status').textContent = 'CONNECTING';
+            document.getElementById('ws-status').textContent = tr('connecting');
             document.getElementById('ws-status').style.color = '#ffaa00';
 
             function attachSocket(label, url) {
@@ -1221,7 +1228,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                     dbg('WS OPEN via ' + label + '!');
                     ensureRenderStarted();
                     document.getElementById('ws-dot').className = 'status-dot connected';
-                    document.getElementById('ws-status').textContent = 'CONNECTED';
+                    document.getElementById('ws-status').textContent = tr('connected');
                     document.getElementById('ws-status').style.color = 'var(--accent-success)';
                 };
 
@@ -1236,7 +1243,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                     ws = null;
                     dbg('WS CLOSE code=' + e.code + ' reason=' + e.reason + ' clean=' + e.wasClean);
                     document.getElementById('ws-dot').className = 'status-dot disconnected';
-                    document.getElementById('ws-status').textContent = 'RECONNECTING';
+                    document.getElementById('ws-status').textContent = tr('reconnecting');
                     document.getElementById('ws-status').style.color = '#ff4444';
                     wsRetryTimer = setTimeout(connectWS, 2000);
                 };
@@ -1267,7 +1274,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                 if (attemptId !== wsAttemptSeq) return;
                 if (ws) return;
                 dbg('WS stuck CONNECTING for ' + Math.round(wsConnectTimeoutMs / 1000) + 's, retrying...');
-                document.getElementById('ws-status').textContent = 'TIMEOUT-RETRY';
+                document.getElementById('ws-status').textContent = tr('timeoutRetry');
                 document.getElementById('ws-status').style.color = '#ff8800';
                 for (const c of wsCandidates) {
                     try { c.onclose = null; c.onerror = null; c.close(); } catch(e) {}
@@ -1354,13 +1361,13 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
 
             const el = document.getElementById('callsign-display');
             el.classList.add('idle');
-            el.innerHTML = 'STANDBY';
+            el.textContent = tr('standby');
         }
 
         function renderHistory() {
             const container = document.getElementById('history-log');
             if (historyLog.length === 0) {
-                container.innerHTML = '<div class="history-empty">Waiting for transmissions...</div>';
+                container.innerHTML = `<div class="history-empty">${tr('waitingTransmissions')}</div>`;
                 return;
             }
             container.innerHTML = historyLog.map(e =>
@@ -1371,6 +1378,19 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
                 </div>`
             ).join('');
         }
+
+        document.addEventListener('nrlnanny-language-change', () => {
+            applyLiveTopic(liveTopic.title, liveTopic.subtitle);
+            applyMuteState();
+            renderHistory();
+            if (!isVoiceActive) {
+                const display = document.getElementById('callsign-display');
+                if (display) display.textContent = tr('standby');
+            }
+            const status = document.getElementById('ws-status');
+            if (status) status.textContent = ws && ws.readyState === WebSocket.OPEN ? tr('connected') : tr('connecting');
+            if (audioResumeBtn) audioResumeBtn.textContent = tr('tapResumeAudio');
+        });
 
         // ===== Rendering =====
         function startRenderLoop() {
@@ -2323,6 +2343,16 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             tick();
             setInterval(tick, 1000);
         })();
+
+        document.addEventListener('nrlnanny-language-change', () => {
+            applyMuteState();
+            if (!isVoiceActive) document.getElementById('callsign-display').textContent = tr('standby');
+            renderHistory();
+            const status = document.getElementById('ws-status');
+            if (ws && ws.readyState === WebSocket.OPEN) status.textContent = tr('connected');
+            else if (ws && ws.readyState === WebSocket.CONNECTING) status.textContent = tr('connecting');
+            else status.textContent = tr('reconnecting');
+        });
 
         fetchLiveTopic();
     </script>

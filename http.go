@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//go:embed control.html play.html live.html
+//go:embed control.html play.html live.html live_mult.html i18n.js
 var webAssets embed.FS
 
 type AudioFile struct {
@@ -40,10 +40,12 @@ func play() {
 	http.HandleFunc("/", serveIndex)                 // Dashboard
 	http.HandleFunc("/play", servePlay)              // Original recordings browser
 	http.HandleFunc("/live", serveLive)              // Live broadcast page
+	http.HandleFunc("/live-mult", serveLiveMult)     // Multi-room live monitor page
 	http.HandleFunc("/ws/live", handleLiveWS)        // Live WebSocket (same port, reverse-proxy/mobile friendly)
 	http.HandleFunc("/pcm-worklet.js", serveWorklet) // AudioWorklet JS for Safari
-	http.HandleFunc("/dirs", listDirs)               // 获取所有日期目录
-	http.HandleFunc("/dir/", listFilesInDir)         // 获取某目录下文件
+	http.HandleFunc("/i18n.js", serveI18n)
+	http.HandleFunc("/dirs", listDirs)       // 获取所有日期目录
+	http.HandleFunc("/dir/", listFilesInDir) // 获取某目录下文件
 	http.Handle("/recordings/", http.StripPrefix("/recordings/", http.FileServer(http.Dir(conf.System.RecoderFilePath))))
 
 	// Web API
@@ -51,6 +53,7 @@ func play() {
 	http.HandleFunc("/api/music", apiMusic)
 	http.HandleFunc("/api/control", apiControl)
 	http.HandleFunc("/api/live-config", apiLiveConfig)
+	http.HandleFunc("/api/live-mult-config", apiLiveMultConfig)
 	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("pong"))
@@ -118,8 +121,32 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`
 	w.Write([]byte(js))
 }
 
+func serveI18n(w http.ResponseWriter, r *http.Request) {
+	content, err := webAssets.ReadFile("i18n.js")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Write(content)
+}
+
 func serveLive(w http.ResponseWriter, r *http.Request) {
 	content, err := webAssets.ReadFile("live.html")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.Write(content)
+}
+
+func serveLiveMult(w http.ResponseWriter, r *http.Request) {
+	content, err := webAssets.ReadFile("live_mult.html")
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
@@ -299,6 +326,16 @@ func apiLiveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
+}
+
+func apiLiveMultConfig(w http.ResponseWriter, r *http.Request) {
+	wsURL := strings.TrimSpace(conf.System.LiveMultWS)
+	if wsURL == "" {
+		wsURL = "wss://js.nrlptt.com/ws/calls"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"ws_url": wsURL})
 }
 
 // 列出所有日期目录（如 2025-10-13）

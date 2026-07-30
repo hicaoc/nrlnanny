@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRL Nanny - Live Mult</title>
+    <script src="/i18n.js"></script>
+    <link rel="icon" href="data:,">
+    <style>
+        :root {
+            --bg: #08090b;
+            --surface: rgba(255,255,255,.055);
+            --surface-strong: rgba(255,255,255,.09);
+            --border: rgba(255,255,255,.15);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --cyan: #00d2ff;
+            --green: #00ff88;
+            --violet: #a78bfa;
+            --danger: #ff5c7a;
+            --radius: 16px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at 12% 5%, rgba(0,210,255,.12), transparent 30rem),
+                radial-gradient(circle at 90% 95%, rgba(167,139,250,.11), transparent 34rem),
+                var(--bg);
+        }
+        button { font: inherit; }
+        .container { width: min(1440px, calc(100% - 28px)); margin: 0 auto; padding: 16px 0 28px; }
+        .glass {
+            background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: inset 0 1px rgba(255,255,255,.15), 0 18px 45px rgba(0,0,0,.32);
+            backdrop-filter: blur(16px);
+        }
+        header {
+            min-height: 68px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .header-left, .nav, .status, .stats { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        h1 { margin: 0; font-size: clamp(1rem, 2vw, 1.3rem); letter-spacing: 1px; }
+        h1 span { color: var(--muted); font-weight: 400; }
+        .nav { gap: 12px; }
+        .nav-link { color: var(--cyan); text-decoration: none; font-size: .78rem; font-weight: 700; letter-spacing: .08em; }
+        .nav-link:hover { text-shadow: 0 0 12px var(--cyan); }
+        .language-toggle { border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px; color: var(--cyan); background: rgba(0,210,255,.08); cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+        .language-toggle:hover { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,210,255,.2); }
+        .status { color: var(--muted); font-size: .75rem; letter-spacing: .06em; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 12px var(--danger); }
+        .dot.online { background: var(--green); box-shadow: 0 0 12px var(--green); }
+        .hero { margin-top: 16px; padding: 20px; }
+        .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+        .eyebrow { color: var(--cyan); font-size: .72rem; letter-spacing: .18em; font-weight: 800; }
+        h2 { margin: 6px 0 5px; font-size: clamp(1.45rem, 3vw, 2.2rem); }
+        .intro { margin: 0; color: var(--muted); font-size: .9rem; }
+        .stats { gap: 8px; }
+        .stat { min-width: 88px; padding: 9px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+        .stat strong { display: block; font-size: 1.05rem; }
+        .stat span { color: var(--muted); font-size: .68rem; }
+        .toolbar { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .search { flex: 1; min-width: 220px; max-width: 440px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 13px; color: var(--text); background: rgba(0,0,0,.23); outline: none; }
+        .search:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,210,255,.1); }
+        .volume-wrap { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .78rem; }
+        input[type=range] { accent-color: var(--cyan); width: 120px; }
+        .rooms { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+        .room {
+            appearance: none;
+            position: relative;
+            min-height: 112px;
+            padding: 15px;
+            overflow: hidden;
+            text-align: left;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        }
+        .room:hover { transform: translateY(-2px); border-color: rgba(0,210,255,.65); background: var(--surface-strong); }
+        .room.selected { border-color: var(--green); background: linear-gradient(140deg, rgba(0,255,136,.15), rgba(0,210,255,.08)); box-shadow: inset 0 0 0 1px rgba(0,255,136,.35), 0 8px 28px rgba(0,255,136,.1); }
+        .room.speaking { border-color: var(--violet); box-shadow: inset 0 0 0 1px rgba(167,139,250,.5), 0 0 24px rgba(167,139,250,.2); }
+        .room.selected.speaking { border-color: var(--green); box-shadow: inset 0 0 0 1px rgba(0,255,136,.6), 0 0 26px rgba(0,255,136,.22); }
+        .room-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .room-name { font-size: .95rem; font-weight: 750; word-break: break-word; }
+        .room-id { flex: none; color: var(--cyan); font: 700 .7rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .room-caller { margin-top: 14px; min-height: 20px; color: var(--muted); font-size: .8rem; line-height: 1.45; word-break: break-word; }
+        .room.speaking .room-caller { color: #d8ccff; font-weight: 650; }
+        .listen { position: absolute; right: 13px; bottom: 11px; color: var(--muted); font-size: .66rem; letter-spacing: .08em; }
+        .room.selected .listen { color: var(--green); }
+        .pulse { display: none; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--violet); box-shadow: 0 0 9px var(--violet); animation: pulse .8s infinite; }
+        .room.speaking .pulse { display: inline-block; }
+        @keyframes pulse { 50% { opacity: .35; transform: scale(1.35); } }
+        .empty { grid-column: 1 / -1; padding: 42px 20px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 15px; }
+        .recent { margin-top: 16px; padding: 18px 20px; }
+        .section-head { margin: 0 0 12px; font-size: .85rem; letter-spacing: .1em; color: var(--muted); }
+        .call-list { display: grid; gap: 7px; max-height: 310px; overflow-y: auto; }
+        .call { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) 65px 150px; gap: 12px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 11px; background: rgba(255,255,255,.035); font-size: .76rem; align-items: center; }
+        .call.active { border-color: var(--violet); }
+        .call-room { font-weight: 700; }
+        .call-sign { color: var(--cyan); }
+        .call-duration { color: var(--violet); font-variant-numeric: tabular-nums; }
+        .call-time { color: var(--muted); text-align: right; }
+        .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); z-index: 20; max-width: min(500px, calc(100% - 30px)); padding: 10px 15px; border-radius: 11px; background: #18202a; border: 1px solid var(--border); opacity: 0; pointer-events: none; transition: .2s; font-size: .82rem; }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        @media (max-width: 720px) {
+            .container { width: min(100% - 18px, 1440px); padding-top: 9px; }
+            header, .hero, .recent { padding: 14px; }
+            .rooms { grid-template-columns: 1fr; }
+            .call { grid-template-columns: 1fr auto auto; grid-template-areas: "room room room" "sign duration time"; }
+            .call-room { grid-area: room; } .call-sign { grid-area: sign; } .call-duration { grid-area: duration; } .call-time { grid-area: time; }
+        }
+    </style>
+</head>
+<body data-page-title="liveMult">
+    <main class="container">
+        <header class="glass">
+            <div class="header-left">
+                <h1>NRL NANNY <span data-i18n="liveMult">LIVE MULT</span></h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                    <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
+                    <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                </nav>
+            </div>
+            <div class="status"><i id="ws-dot" class="dot"></i><span id="ws-status" data-i18n="connecting">正在连接</span><button id="language-toggle" class="language-toggle" type="button" data-language-toggle onclick="NRLI18n.toggle()">EN</button></div>
+        </header>
+
+        <section class="hero glass">
+            <div class="hero-top">
+                <div>
+                    <div class="eyebrow" data-i18n="multiMonitor">MULTI-ROOM MONITOR</div>
+                    <h2 data-i18n="multiTitle">多房间实时直播</h2>
+                    <p class="intro" data-i18n="multiIntro">点击房间卡片开始监听；再次点击即可取消。支持同时订阅多个房间。</p>
+                </div>
+                <div class="stats">
+                    <div class="stat"><strong id="room-count">0</strong><span data-i18n="rooms">房间</span></div>
+                    <div class="stat"><strong id="active-count">0</strong><span data-i18n="activeCalls">通话中</span></div>
+                    <div class="stat"><strong id="sub-count">0</strong><span data-i18n="listening">监听中</span></div>
+                </div>
+            </div>
+            <div class="toolbar">
+                <input id="search" class="search" type="search" data-i18n-placeholder="searchRooms" placeholder="搜索房间名称或编号…" autocomplete="off">
+                <label class="volume-wrap"><span data-i18n="volume">音量</span> <input id="volume" type="range" min="0" max="100" value="90"><span id="volume-value">90%</span></label>
+            </div>
+            <div id="rooms" class="rooms"><div class="empty" data-i18n="loadingRooms">正在获取房间列表…</div></div>
+        </section>
+
+        <section class="recent glass">
+            <h3 class="section-head" data-i18n="recentCalls">最近 20 次通话</h3>
+            <div id="calls" class="call-list"><div class="empty" data-i18n="noCalls">暂无通话记录</div></div>
+        </section>
+    </main>
+    <div id="toast" class="toast"></div>
+
+    <script>
+        (() => {
+            const state = {
+                ws: null, url: '', connected: false, destroyed: false,
+                rooms: [], recentCalls: [], subscriptions: [], retry: null, ping: null,
+                audioContext: null, gain: null, nextPlayTime: 0
+            };
+            const $ = id => document.getElementById(id);
+            const roomsEl = $('rooms');
+            const callsEl = $('calls');
+            let toastTimer = null;
+
+            const t = (key, values = {}) => NRLI18n.t(key, values);
+            function applyTranslations() {
+                NRLI18n.apply();
+                setConnection(state.connected, state.statusKey || 'connecting');
+                render();
+            }
+
+            function escapeHTML(value) {
+                return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+            }
+            function showToast(message) {
+                $('toast').textContent = message;
+                $('toast').classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2600);
+            }
+            function speakers(room) {
+                if (Array.isArray(room.speakers) && room.speakers.length) return room.speakers;
+                return room.callsign ? [{ callsign: room.callsign, ssid: room.ssid }] : [];
+            }
+            function speakerText(room) {
+                return speakers(room).map(item => `${item.callsign || ''}-${item.ssid ?? ''}`).join(' / ');
+            }
+            function roomLabel(room) {
+                return `#${room.room_id ?? ''} · ${room.room_name || t('unnamedRoom')}`;
+            }
+            function render() {
+                const query = $('search').value.trim().toLowerCase();
+                const sorted = [...state.rooms]
+                    .filter(room => !query || roomLabel(room).toLowerCase().includes(query) || String(room.room_key || '').toLowerCase().includes(query))
+                    .sort((a, b) => Number(a.room_id || 0) - Number(b.room_id || 0));
+                $('room-count').textContent = state.rooms.length;
+                $('active-count').textContent = state.rooms.filter(room => room.active).length;
+                $('sub-count').textContent = state.subscriptions.length;
+                if (!sorted.length) {
+                    roomsEl.innerHTML = `<div class="empty">${state.rooms.length ? t('noMatchingRooms') : t('noRooms')}</div>`;
+                } else {
+                    roomsEl.innerHTML = sorted.map(room => {
+                        const selected = state.subscriptions.includes(room.room_key);
+                        const caller = room.active && speakerText(room) ? speakerText(room) : t('idle');
+                        return `<button class="room${selected ? ' selected' : ''}${room.active ? ' speaking' : ''}" data-room-key="${escapeHTML(room.room_key)}" aria-pressed="${selected}">
+                            <span class="room-head"><span class="room-name">${escapeHTML(room.room_name || t('unnamedRoom'))}</span><span class="room-id">#${escapeHTML(room.room_id)}</span></span>
+                            <span class="room-caller"><i class="pulse"></i>${escapeHTML(caller)}</span>
+                            <span class="listen">${selected ? t('nowListening') : t('clickListen')}</span>
+                        </button>`;
+                    }).join('');
+                }
+                renderCalls();
+            }
+            function renderCalls() {
+                if (!state.recentCalls.length) {
+                    callsEl.innerHTML = `<div class="empty">${t('noCalls')}</div>`;
+                    return;
+                }
+                callsEl.innerHTML = state.recentCalls.map(item => `<div class="call${item.active ? ' active' : ''}">
+                    <span class="call-room">${escapeHTML(roomLabel(item))}</span>
+                    <span class="call-sign">${escapeHTML(item.callsign || '')}-${escapeHTML(item.ssid ?? '')}</span>
+                    <span class="call-duration">${escapeHTML(item.duration_text || '00:00')}</span>
+                    <span class="call-time">${escapeHTML(item.started_at || '')}</span>
+                </div>`).join('');
+            }
+            function setConnection(connected, statusKey) {
+                state.connected = connected;
+                state.statusKey = statusKey;
+                $('ws-dot').classList.toggle('online', connected);
+                $('ws-status').textContent = t(statusKey);
+            }
+            function mergeRoom(room) {
+                const index = state.rooms.findIndex(item => item.room_key === room.room_key);
+                if (index < 0) state.rooms.push(room);
+                else state.rooms[index] = { ...state.rooms[index], ...room };
+            }
+            function handleJSON(payload) {
+                switch (payload.type) {
+                case 'snapshot':
+                    state.rooms = Array.isArray(payload.rooms) ? payload.rooms : [];
+                    state.recentCalls = Array.isArray(payload.recent_calls) ? payload.recent_calls : [];
+                    state.subscriptions = Array.isArray(payload.subscriptions) ? payload.subscriptions : [];
+                    break;
+                case 'room_state': if (payload.room) mergeRoom(payload.room); break;
+                case 'recent_calls': state.recentCalls = Array.isArray(payload.recent_calls) ? payload.recent_calls : []; break;
+                case 'subscriptions': state.subscriptions = Array.isArray(payload.subscriptions) ? payload.subscriptions : []; break;
+                default: return;
+                }
+                render();
+            }
+            async function ensureAudio() {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) throw new Error(t('audioUnsupportedShort'));
+                if (!state.audioContext) {
+                    state.audioContext = new AudioCtx({ sampleRate: 8000 });
+                    state.gain = state.audioContext.createGain();
+                    state.gain.gain.value = Number($('volume').value) / 100;
+                    state.gain.connect(state.audioContext.destination);
+                    state.nextPlayTime = state.audioContext.currentTime;
+                }
+                if (state.audioContext.state === 'suspended') await state.audioContext.resume();
+            }
+            function decodeALaw(bytes) {
+                const pcm = new Float32Array(bytes.length);
+                for (let i = 0; i < bytes.length; i++) {
+                    const code = bytes[i] ^ 0x55;
+                    const exponent = (code & 0x70) >> 4;
+                    let mantissa = code & 0x0f;
+                    if (exponent > 0) mantissa += 16;
+                    let sample = (mantissa << 4) + 8;
+                    if (exponent > 1) sample <<= exponent - 1;
+                    pcm[i] = ((code & 0x80) ? sample : -sample) / 32768;
+                }
+                return pcm;
+            }
+            function playAudio(bytes) {
+                if (!state.audioContext || !state.gain || !bytes.length) return;
+                const pcm = decodeALaw(bytes);
+                const buffer = state.audioContext.createBuffer(1, pcm.length, 8000);
+                buffer.copyToChannel(pcm, 0);
+                const source = state.audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(state.gain);
+                const now = state.audioContext.currentTime;
+                if (state.nextPlayTime < now || state.nextPlayTime - now > 1) state.nextPlayTime = now + .05;
+                source.start(state.nextPlayTime);
+                state.nextPlayTime += buffer.duration;
+            }
+            function connect() {
+                if (state.destroyed || !state.url || (state.ws && state.ws.readyState <= WebSocket.OPEN)) return;
+                clearTimeout(state.retry);
+                setConnection(false, 'connecting');
+                const ws = new WebSocket(state.url);
+                ws.binaryType = 'arraybuffer';
+                state.ws = ws;
+                ws.onopen = () => {
+                    setConnection(true, 'connected');
+                    clearInterval(state.ping);
+                    state.ping = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ action: 'ping' })), 10000);
+                };
+                ws.onmessage = event => {
+                    if (typeof event.data === 'string') {
+                        try { handleJSON(JSON.parse(event.data)); } catch (error) { console.error('Invalid monitor payload', error); }
+                    } else {
+                        playAudio(new Uint8Array(event.data));
+                    }
+                };
+                ws.onerror = () => setConnection(false, 'reconnecting');
+                ws.onclose = () => {
+                    clearInterval(state.ping);
+                    state.ping = null;
+                    if (state.ws === ws) state.ws = null;
+                    setConnection(false, 'reconnecting');
+                    if (!state.destroyed) state.retry = setTimeout(connect, 2000);
+                };
+            }
+            async function toggleRoom(roomKey) {
+                if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+                    showToast(t('wsNotConnected'));
+                    return;
+                }
+                const subscribed = state.subscriptions.includes(roomKey);
+                if (!subscribed) {
+                    try { await ensureAudio(); } catch (error) { showToast(error.message); return; }
+                }
+                state.ws.send(JSON.stringify({ action: subscribed ? 'unsubscribe' : 'subscribe', room_keys: [roomKey] }));
+            }
+            async function init() {
+                try {
+                    const response = await fetch('/api/live-mult-config', { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const config = await response.json();
+                    state.url = config.ws_url;
+                    connect();
+                } catch (error) {
+                    setConnection(false, 'configFailed');
+                    showToast(t('configLoadFailed', { error: error.message }));
+                }
+            }
+
+            roomsEl.addEventListener('click', event => {
+                const card = event.target.closest('[data-room-key]');
+                if (card) toggleRoom(card.dataset.roomKey);
+            });
+            $('search').addEventListener('input', render);
+            document.addEventListener('nrlnanny-language-change', applyTranslations);
+            $('volume').addEventListener('input', event => {
+                const value = Number(event.target.value);
+                $('volume-value').textContent = `${value}%`;
+                if (state.gain) state.gain.gain.value = value / 100;
+            });
+            window.addEventListener('pagehide', () => {
+                state.destroyed = true;
+                clearTimeout(state.retry); clearInterval(state.ping);
+                if (state.ws) state.ws.close(1000, 'page unload');
+                if (state.audioContext) state.audioContext.close();
+            });
+            applyTranslations();
+            init();
+        })();
+    </script>
+</body>
+</html>

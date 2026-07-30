@@ -36,6 +36,7 @@ type config struct {
 		WebPort         string  `yaml:"WebPort" json:"web_port"`
 		LiveTitle       string  `yaml:"LiveTitle" json:"live_title"`
 		LiveSubtitle    string  `yaml:"LiveSubtitle" json:"live_subtitle"`
+		LiveMultWS      string  `yaml:"LiveMultWS" json:"live_mult_ws"`
 	} `yaml:"System" json:"system"`
 }
 

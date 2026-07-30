@@ -22,3 +22,4 @@ System:
     WebPort : "8080"  # 监听端口
     LiveTitle: "BROADCAST TOPIC" # live页面主标题
     LiveSubtitle: "Live Broadcast" # live页面副标题
+    LiveMultWS: "wss://js.nrlptt.com/ws/calls" # 多房间直播WebSocket接口

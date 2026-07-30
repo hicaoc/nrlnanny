@@ -53,6 +53,7 @@ find . -type f -size -47000c -delete
 信标、定时播放和音乐轮播均支持 WAV、MP3、FLAC。音频会自动混合为单声道并重采样到 16 kHz；发送 G711 时再降采样到 8 kHz。
 - **CronString**: CRON格式的定时配置，默认是每10分钟一次，例如 `"*/10 * * * *"`
 - **WebPort**: 网页监听端口，例如 `"8080"`
+- **LiveMultWS**: 多房间直播 WebSocket 地址，默认 `"wss://js.nrlptt.com/ws/calls"`
 
 ## 安装步骤
 
