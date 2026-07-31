@@ -33,6 +33,42 @@ func TestOpusVoiceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestOpusVoiceContinuousSignalKeepsLevel(t *testing.T) {
+	var energy float64
+	var samples int
+	for frame := 0; frame < 50; frame++ {
+		pcm := make([]int16, opusFrameSamples)
+		for i := range pcm {
+			position := float64(frame*opusFrameSamples + i)
+			pcm[i] = int16(math.Sin(2*math.Pi*1000*position/opusSampleRate) * 1000)
+		}
+		packet, err := encodeOpusVoice(pcm, frame == 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := decodeOpusVoice(&NRL21packet{
+			Type:     8,
+			CallSign: "N0MUSC",
+			SSID:     77,
+			DATA:     packet,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if frame < 5 {
+			continue
+		}
+		for _, sample := range decoded {
+			energy += float64(sample) * float64(sample)
+			samples++
+		}
+	}
+	rms := math.Sqrt(energy / float64(samples))
+	if rms < 400 || rms > 1200 {
+		t.Fatalf("continuous Opus signal RMS = %.0f, want stable level near 707", rms)
+	}
+}
+
 func TestVoiceResamplingFrameSizes(t *testing.T) {
 	pcm8 := make([]int, 160)
 	for i := range pcm8 {

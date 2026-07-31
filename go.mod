@@ -19,8 +19,8 @@ require (
 	github.com/bluenviron/gohlslib/v2 v2.4.1
 	github.com/colespringer/waxflow v0.0.0-20260730025520-35107bc1aae3
 	github.com/gorilla/websocket v1.5.3
-	github.com/kazzmir/opus-go v1.3.0
 	github.com/mewkiz/flac v1.0.13
+	github.com/thesyncim/gopus v0.1.1
 )
 
 require (

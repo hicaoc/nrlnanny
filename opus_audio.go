@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kazzmir/opus-go/opus"
+	"github.com/thesyncim/gopus"
 )
 
 const (
@@ -21,27 +21,28 @@ const (
 
 type opusEncoderState struct {
 	mu      sync.Mutex
-	encoder *opus.Encoder
+	encoder *gopus.Encoder
 	packet  []byte
 }
 
 var sendOpusEncoder opusEncoderState
 
-func newConfiguredOpusEncoder() (*opus.Encoder, error) {
-	encoder, err := opus.NewEncoder(opusSampleRate, opusChannels, opus.ApplicationVoIP)
+func newConfiguredOpusEncoder() (*gopus.Encoder, error) {
+	encoder, err := gopus.NewEncoder(gopus.EncoderConfig{
+		SampleRate:  opusSampleRate,
+		Channels:    opusChannels,
+		Application: gopus.ApplicationAudio,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if err := encoder.SetBitrate(opusBitrate); err != nil {
-		encoder.Close()
 		return nil, err
 	}
-	if err := encoder.SetVBR(true); err != nil {
-		encoder.Close()
+	if err := encoder.SetBitrateMode(gopus.BitrateModeVBR); err != nil {
 		return nil, err
 	}
 	if err := encoder.SetComplexity(10); err != nil {
-		encoder.Close()
 		return nil, err
 	}
 	return encoder, nil
@@ -56,8 +57,7 @@ func encodeOpusVoice(pcm []int16, reset bool) ([]byte, error) {
 	defer sendOpusEncoder.mu.Unlock()
 
 	if reset && sendOpusEncoder.encoder != nil {
-		_ = sendOpusEncoder.encoder.Close()
-		sendOpusEncoder.encoder = nil
+		sendOpusEncoder.encoder.Reset()
 	}
 	if sendOpusEncoder.encoder == nil {
 		encoder, err := newConfiguredOpusEncoder()
@@ -68,7 +68,7 @@ func encodeOpusVoice(pcm []int16, reset bool) ([]byte, error) {
 		sendOpusEncoder.packet = make([]byte, opusPacketMax)
 	}
 
-	n, err := sendOpusEncoder.encoder.Encode(pcm, opusFrameSamples, sendOpusEncoder.packet)
+	n, err := sendOpusEncoder.encoder.EncodeInt16(pcm, sendOpusEncoder.packet)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func encodeOpusVoice(pcm []int16, reset bool) ([]byte, error) {
 
 type opusDecoderState struct {
 	mu       sync.Mutex
-	decoder  *opus.Decoder
+	decoder  *gopus.Decoder
 	pcm      []int16
 	lastUsed time.Time
 }
@@ -95,7 +95,7 @@ func decoderForOpusStream(key string, now time.Time) (*opusDecoderState, error) 
 		state.mu.Lock()
 		return state, nil
 	}
-	decoder, err := opus.NewDecoder(receiveSampleRate, opusChannels)
+	decoder, err := gopus.NewDecoder(gopus.DefaultDecoderConfig(receiveSampleRate, opusChannels))
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,6 @@ func decoderForOpusStream(key string, now time.Time) (*opusDecoderState, error) 
 		}
 		if old := receiveOpusDecoders.items[oldestKey]; old != nil {
 			old.mu.Lock()
-			_ = old.decoder.Close()
 			old.mu.Unlock()
 			delete(receiveOpusDecoders.items, oldestKey)
 		}
@@ -141,14 +140,10 @@ func decodeOpusVoice(nrl *NRL21packet) ([]int16, error) {
 
 	defer state.mu.Unlock()
 	if now.Sub(state.lastUsed) > time.Second {
-		_ = state.decoder.Close()
-		state.decoder, err = opus.NewDecoder(receiveSampleRate, opusChannels)
-		if err != nil {
-			return nil, err
-		}
+		state.decoder.Reset()
 	}
 	state.lastUsed = now
-	samples, err := state.decoder.Decode(nrl.DATA, state.pcm, len(state.pcm), false)
+	samples, err := state.decoder.DecodeInt16(nrl.DATA, state.pcm)
 	if err != nil {
 		return nil, err
 	}
