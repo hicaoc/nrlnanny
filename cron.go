@@ -129,9 +129,13 @@ func recivePCM() {
 		default:
 		}
 
-		// 4. 混音: musicPCM
+		// 4. 混音: 本地音乐或网络电台（网络电台优先，两个节目不会同时发送）
+		musicSource := musicPCM
+		if isRadioPlaying() {
+			musicSource = radioPCM
+		}
 		select {
-		case wav := <-musicPCM:
+		case wav := <-musicSource:
 			// 计算音乐音量缩放因子
 			// 如果有麦克风或信标活动，降低音乐音量
 			volumeScale = 1.0
@@ -164,6 +168,10 @@ func recivePCM() {
 		}
 
 		if !isSilence {
+			if dev == nil || dev.udpSocket == nil {
+				wasSending = false
+				continue
+			}
 			var packet []byte
 			if sendOpus {
 				opusData, err := encodeOpusVoice(intsToInt16WithVolume(pcmbuf, conf.System.Volume), !wasSending || !lastOpusMode)

@@ -13,30 +13,35 @@ import (
 
 type config struct {
 	System struct {
-		Server          string  `yaml:"Server" json:"server"`
-		Port            string  `yaml:"Port" json:"port"`
-		Callsign        string  `yaml:"Callsign" json:"callsign"`
-		SSID            byte    `yaml:"SSID" json:"ssid"`
-		Volume          float64 `yaml:"Volume" json:"volume"`               // 音量
-		DuckScale       float64 `yaml:"DuckScale" json:"duck_scale"`        // 音量降低比例
-		DuckMicPCM      bool    `yaml:"DuckMicPCM" json:"duck_mic_pcm"`     // 是否降低麦克风音量
-		DuckMusicPCM    bool    `yaml:"DuckMusicPCM" json:"duck_music_pcm"` // 是否降低音乐音量
-		RecordMic       bool    `yaml:"RecordMic" json:"record_mic"`        // 是否启用麦克风采集
-		SendOpus        bool    `yaml:"SendOpus" json:"send_opus"`          // 发送时使用 type 8 Opus
-		RecordVoice     bool    `yaml:"RecordVoice" json:"record_voice"`    // 是否启用通话录音
-		EnableMusic     bool    `yaml:"EnableMusic" json:"enable_music"`    // 是否启用音乐播放
-		EnableCron      bool    `yaml:"EnableCron" json:"enable_cron"`      // 是否启用信标播放
-		EnableTimePlay  bool    `yaml:"EnableTimePlay" json:"enable_time"`  // 是否启用定时点播放
-		MusicPlaying    bool    `yaml:"MusicPlaying" json:"music_playing"`  // 是否处于播放状态
-		AudioFile       string  `yaml:"AudioFile" json:"audio_file"`
-		AudioFilePath   string  `yaml:"AudioFilePath" json:"audio_file_Path"`
-		MusicFilePath   string  `yaml:"MusicFilePath" json:"music_file_Path"`
-		RecoderFilePath string  `yaml:"RecoderFilePath" json:"Path"`
-		CronString      string  `yaml:"CronString" json:"cronString"`
-		WebPort         string  `yaml:"WebPort" json:"web_port"`
-		LiveTitle       string  `yaml:"LiveTitle" json:"live_title"`
-		LiveSubtitle    string  `yaml:"LiveSubtitle" json:"live_subtitle"`
-		LiveMultWS      string  `yaml:"LiveMultWS" json:"live_mult_ws"`
+		Server            string         `yaml:"Server" json:"server"`
+		Port              string         `yaml:"Port" json:"port"`
+		Callsign          string         `yaml:"Callsign" json:"callsign"`
+		SSID              byte           `yaml:"SSID" json:"ssid"`
+		Volume            float64        `yaml:"Volume" json:"volume"`               // 音量
+		DuckScale         float64        `yaml:"DuckScale" json:"duck_scale"`        // 音量降低比例
+		DuckMicPCM        bool           `yaml:"DuckMicPCM" json:"duck_mic_pcm"`     // 是否降低麦克风音量
+		DuckMusicPCM      bool           `yaml:"DuckMusicPCM" json:"duck_music_pcm"` // 是否降低音乐音量
+		RecordMic         bool           `yaml:"RecordMic" json:"record_mic"`        // 是否启用麦克风采集
+		SendOpus          bool           `yaml:"SendOpus" json:"send_opus"`          // 发送时使用 type 8 Opus
+		RecordVoice       bool           `yaml:"RecordVoice" json:"record_voice"`    // 是否启用通话录音
+		EnableMusic       bool           `yaml:"EnableMusic" json:"enable_music"`    // 是否启用音乐播放
+		EnableCron        bool           `yaml:"EnableCron" json:"enable_cron"`      // 是否启用信标播放
+		EnableTimePlay    bool           `yaml:"EnableTimePlay" json:"enable_time"`  // 是否启用定时点播放
+		MusicPlaying      bool           `yaml:"MusicPlaying" json:"music_playing"`  // 是否处于播放状态
+		AudioFile         string         `yaml:"AudioFile" json:"audio_file"`
+		AudioFilePath     string         `yaml:"AudioFilePath" json:"audio_file_Path"`
+		MusicFilePath     string         `yaml:"MusicFilePath" json:"music_file_Path"`
+		RecoderFilePath   string         `yaml:"RecoderFilePath" json:"Path"`
+		CronString        string         `yaml:"CronString" json:"cronString"`
+		WebPort           string         `yaml:"WebPort" json:"web_port"`
+		EnableControlPage bool           `yaml:"EnableControlPage" json:"enable_control_page"`
+		ControlUsername   string         `yaml:"ControlUsername" json:"-"`
+		ControlPassword   string         `yaml:"ControlPassword" json:"-"`
+		LiveTitle         string         `yaml:"LiveTitle" json:"live_title"`
+		LiveSubtitle      string         `yaml:"LiveSubtitle" json:"live_subtitle"`
+		RadioStations     []RadioStation `yaml:"RadioStations" json:"radio_stations"`
+		RadioActiveID     string         `yaml:"RadioActiveID" json:"radio_active_id"`
+		RadioPlaying      bool           `yaml:"RadioPlaying" json:"radio_playing"`
 	} `yaml:"System" json:"system"`
 }
 
@@ -69,6 +74,7 @@ func (c *config) init() {
 	conf.System.EnableTimePlay = true
 	conf.System.MusicPlaying = true
 	conf.System.RecordVoice = true
+	conf.System.EnableControlPage = true
 
 	yamlFile, err := os.ReadFile(confpath)
 

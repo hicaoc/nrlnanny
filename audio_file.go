@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -12,13 +13,20 @@ import (
 	"github.com/go-audio/wav"
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/mewkiz/flac"
+
+	waxaudio "github.com/colespringer/waxflow/audio"
+	waxcodec "github.com/colespringer/waxflow/codec"
+	waxaac "github.com/colespringer/waxflow/codec/aac"
+	waxcontainer "github.com/colespringer/waxflow/container"
+	"github.com/colespringer/waxflow/container/adts"
+	"github.com/colespringer/waxflow/container/mp4"
 )
 
 const playbackSampleRate = 16000
 
 func isSupportedAudioFile(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".wav", ".mp3", ".flac":
+	case ".wav", ".mp3", ".flac", ".aac", ".adts", ".m4a", ".mp4":
 		return true
 	default:
 		return false
@@ -42,6 +50,10 @@ func decodeAudioFile(path string) ([]int, error) {
 		pcm, sampleRate, err = decodeMP3File(path)
 	case ".flac":
 		pcm, sampleRate, err = decodeFLACFile(path)
+	case ".aac", ".adts":
+		pcm, sampleRate, err = decodeADTSFile(path)
+	case ".m4a", ".mp4":
+		pcm, sampleRate, err = decodeMP4AACFile(path)
 	default:
 		return nil, fmt.Errorf("unsupported audio format %q", filepath.Ext(path))
 	}
@@ -152,6 +164,126 @@ func decodeFLACFile(path string) ([]int, int, error) {
 		}
 	}
 	return mono, int(info.SampleRate), nil
+}
+
+func decodeADTSFile(path string) ([]int, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer f.Close()
+	source, err := waxcontainer.FileSource(f)
+	if err != nil {
+		return nil, 0, fmt.Errorf("open AAC %s: %w", path, err)
+	}
+	demuxer, err := adts.NewDemuxer(source, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse AAC/ADTS %s: %w", path, err)
+	}
+	return decodeAACPackets(demuxer, path)
+}
+
+func decodeMP4AACFile(path string) ([]int, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer f.Close()
+	source, err := waxcontainer.FileSource(f)
+	if err != nil {
+		return nil, 0, fmt.Errorf("open M4A/MP4 %s: %w", path, err)
+	}
+	demuxer, err := mp4.NewDemuxer(source, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse M4A/MP4 %s: %w", path, err)
+	}
+	return decodeAACPackets(demuxer, path)
+}
+
+func decodeAACPackets(demuxer waxcontainer.Demuxer, path string) ([]int, int, error) {
+	tracks := demuxer.Tracks()
+	if len(tracks) != 1 || tracks[0].Codec != waxcodec.AACLC {
+		return nil, 0, fmt.Errorf("M4A/MP4 file does not contain a supported AAC-LC audio track: %s", path)
+	}
+	track := tracks[0]
+	cfg, err := waxaac.ParseASC(track.CodecConfig)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse AAC configuration %s: %w", path, err)
+	}
+	format, err := cfg.Format()
+	if err != nil {
+		return nil, 0, fmt.Errorf("read AAC format %s: %w", path, err)
+	}
+	decoder, err := waxaac.NewDecoder(cfg, format)
+	if err != nil {
+		return nil, 0, fmt.Errorf("initialize embedded AAC decoder %s: %w", path, err)
+	}
+	defer decoder.Release()
+
+	capacity := 0
+	if track.Samples > 0 {
+		// Preallocation is only an optimization. Cap it so an untrusted MP4
+		// duration cannot force a huge allocation before packets are parsed.
+		estimated := track.Samples
+		if oneMinute := int64(format.Rate) * 60; estimated > oneMinute {
+			estimated = oneMinute
+		}
+		capacity = int(estimated)
+	}
+	mono := make([]int, 0, capacity)
+	var packet waxcontainer.Packet
+	for {
+		err := demuxer.ReadPacket(&packet)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, 0, fmt.Errorf("read AAC packet %s: %w", path, err)
+		}
+		if err := decoder.Decode(packet.Data, func(pcm *waxaudio.Buffer) error {
+			mono = append(mono, downmixFloatPCM(pcm)...)
+			return nil
+		}); err != nil {
+			return nil, 0, fmt.Errorf("decode AAC packet %s: %w", path, err)
+		}
+	}
+
+	// M4A edit lists carry encoder delay and end padding. ADTS has no such
+	// signaling, so both values remain zero for raw .aac files.
+	start := track.Delay
+	if start < 0 {
+		start = 0
+	}
+	if start > int64(len(mono)) {
+		start = int64(len(mono))
+	}
+	padding := track.Padding
+	if padding < 0 {
+		padding = 0
+	}
+	if padding > int64(len(mono))-start {
+		padding = int64(len(mono)) - start
+	}
+	end := int64(len(mono)) - padding
+	if track.SamplesExact && track.Samples >= 0 && start+track.Samples < end {
+		end = start + track.Samples
+	}
+	return mono[start:end], format.Rate, nil
+}
+
+func downmixFloatPCM(pcm *waxaudio.Buffer) []int {
+	if pcm == nil || pcm.N <= 0 || pcm.Fmt.Channels <= 0 {
+		return nil
+	}
+	mono := make([]int, pcm.N)
+	for i := range mono {
+		var sum float64
+		for channel := 0; channel < pcm.Fmt.Channels; channel++ {
+			sum += float64(pcm.ChanF(channel)[i])
+		}
+		mono[i] = clampPCM(int(math.Round(sum * 32767 / float64(pcm.Fmt.Channels))))
+	}
+	return mono
 }
 
 func downmixInterleaved(input []int, channels, bits int) []int {

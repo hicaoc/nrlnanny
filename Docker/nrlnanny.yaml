@@ -6,11 +6,16 @@ System:
     SSID: 250  # 虚拟设备SSID
     SendOpus: false # true: Opus 16kHz/type 8, false: G.711 A-law 8kHz/type 1
     music_file_Path: "./music"
-    AudioFilePath : "./audio" # WAV/MP3/FLAC 定时音频目录
+    AudioFilePath : "./audio" # WAV/MP3/FLAC/AAC/M4A 定时音频目录
     RecoderFilePath: "./recoder"  # 录音文件保存路径
     CronString: "* * * * *"  # 播放周期配置，linux cron格式
     AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名
     WebPort : "8080"  # 监听端口
+    EnableControlPage: true # false: 完全关闭控制台登录和控制API；首页始终为Live
+    ControlUsername: "admin" # 控制台登录用户名
+    ControlPassword: "change-this-password" # 请在部署前修改
     LiveTitle: "BROADCAST TOPIC" # live页面主标题
     LiveSubtitle: "Live Broadcast" # live页面副标题
-    LiveMultWS: "wss://js.nrlptt.com/ws/calls" # 多房间直播WebSocket接口
+    RadioStations: [] # 网络电台收藏，内嵌支持MP3直链和AAC-LC M3U8/HLS
+    RadioActiveID: "" # 当前选择的网络电台ID
+    RadioPlaying: false # 启动时是否恢复网络电台

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//go:embed control.html play.html live.html live_mult.html i18n.js
+//go:embed control.html play.html live.html live_mult.html login.html i18n.js
 var webAssets embed.FS
 
 type AudioFile struct {
@@ -37,8 +37,11 @@ func parseTimeFromFilename(filename string) (time.Time, error) {
 }
 
 func play() {
-	http.HandleFunc("/", serveIndex)                 // Dashboard
-	http.HandleFunc("/play", servePlay)              // Original recordings browser
+	http.HandleFunc("/", serveIndex)          // Live homepage
+	http.HandleFunc("/control", serveControl) // Authenticated dashboard
+	http.HandleFunc("/login", serveLogin)
+	http.HandleFunc("/logout", serveLogout)
+	http.HandleFunc("/play", servePlay)              // Public recordings browser
 	http.HandleFunc("/live", serveLive)              // Live broadcast page
 	http.HandleFunc("/live-mult", serveLiveMult)     // Multi-room live monitor page
 	http.HandleFunc("/ws/live", handleLiveWS)        // Live WebSocket (same port, reverse-proxy/mobile friendly)
@@ -50,8 +53,9 @@ func play() {
 
 	// Web API
 	http.HandleFunc("/api/status", apiStatus)
-	http.HandleFunc("/api/music", apiMusic)
-	http.HandleFunc("/api/control", apiControl)
+	http.HandleFunc("/api/music", controlPageOnly(apiMusic))
+	http.HandleFunc("/api/radio", controlPageOnly(apiRadio))
+	http.HandleFunc("/api/control", controlPageOnly(apiControl))
 	http.HandleFunc("/api/live-config", apiLiveConfig)
 	http.HandleFunc("/api/live-mult-config", apiLiveMultConfig)
 	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +75,18 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	serveLive(w, r)
+}
+
+func serveControl(w http.ResponseWriter, r *http.Request) {
+	if !conf.System.EnableControlPage {
+		http.NotFound(w, r)
+		return
+	}
+	if !controlAuthenticated(r) {
+		http.Redirect(w, r, "/login?next=/control", http.StatusSeeOther)
+		return
+	}
 	content, err := webAssets.ReadFile("control.html")
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
@@ -81,6 +97,26 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 	w.Write(content)
+}
+
+func controlPageOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !conf.System.EnableControlPage {
+			http.NotFound(w, r)
+			return
+		}
+		if !controlAuthenticated(r) {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+func controlPageHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		controlPageOnly(next.ServeHTTP)(w, r)
+	})
 }
 
 func serveWorklet(w http.ResponseWriter, r *http.Request) {
@@ -177,19 +213,25 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 	displayMu.Unlock()
 
 	data := map[string]any{
-		"volume":         int(conf.System.Volume * 100),
-		"status":         s,
-		"cron":           c,
-		"progress":       p,
-		"playing":        conf.System.MusicPlaying,
-		"duck_scale":     int(conf.System.DuckScale * 100),
-		"duck_mic_pcm":   conf.System.DuckMicPCM,
-		"duck_music_pcm": conf.System.DuckMusicPCM,
-		"record_mic":     isRecordMicEnabled(),
-		"record_voice":   isRecordingEnabled(),
-		"send_opus":      isSendOpusEnabled(),
-		"cron_enabled":   isCronEnabled(),
-		"time_enabled":   isTimeEnabled(),
+		"callsign":        conf.System.Callsign,
+		"ssid":            conf.System.SSID,
+		"server":          conf.System.Server,
+		"port":            conf.System.Port,
+		"control_enabled": conf.System.EnableControlPage,
+		"authenticated":   controlAuthenticated(r),
+		"volume":          int(conf.System.Volume * 100),
+		"status":          s,
+		"cron":            c,
+		"progress":        p,
+		"playing":         conf.System.MusicPlaying,
+		"duck_scale":      int(conf.System.DuckScale * 100),
+		"duck_mic_pcm":    conf.System.DuckMicPCM,
+		"duck_music_pcm":  conf.System.DuckMusicPCM,
+		"record_mic":      isRecordMicEnabled(),
+		"record_voice":    isRecordingEnabled(),
+		"send_opus":       isSendOpusEnabled(),
+		"cron_enabled":    isCronEnabled(),
+		"time_enabled":    isTimeEnabled(),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
@@ -207,6 +249,69 @@ func apiMusic(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
+}
+
+func apiRadio(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		writeRadioState(w)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Action string `json:"action"`
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		URL    string `json:"url"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024)).Decode(&req); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	var err error
+	switch req.Action {
+	case "add":
+		_, err = saveRadioStation("", req.Name, req.URL)
+	case "update":
+		_, err = saveRadioStation(req.ID, req.Name, req.URL)
+		if err == nil {
+			_, activeID, playing, _ := radioSnapshot()
+			if playing && activeID == req.ID {
+				err = startRadio(req.ID)
+			}
+		}
+	case "delete":
+		err = deleteRadioStation(req.ID)
+	case "play":
+		err = startRadio(req.ID)
+	case "stop":
+		stopRadio()
+	default:
+		err = fmt.Errorf("unsupported radio action")
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Action == "add" || req.Action == "update" || req.Action == "delete" {
+		saveConfig()
+	}
+	writeRadioState(w)
+}
+
+func writeRadioState(w http.ResponseWriter) {
+	stations, activeID, playing, status := radioSnapshot()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"stations":  stations,
+		"active_id": activeID,
+		"playing":   playing,
+		"status":    status,
+	})
 }
 
 func apiControl(w http.ResponseWriter, r *http.Request) {
@@ -227,8 +332,13 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "play_id":
+		switchToLocalMusic()
 		PlayMusicByID(req.ID)
 	case "pause":
+		if isRadioPlaying() {
+			stopRadio()
+			break
+		}
 		select {
 		case pausemusic <- true:
 		default:
@@ -236,11 +346,13 @@ func apiControl(w http.ResponseWriter, r *http.Request) {
 		conf.System.MusicPlaying = !conf.System.MusicPlaying
 		saveConfig()
 	case "next":
+		switchToLocalMusic()
 		select {
 		case nextmusic <- true:
 		default:
 		}
 	case "prev":
+		switchToLocalMusic()
 		select {
 		case lastmusic <- true:
 		default:
@@ -329,13 +441,25 @@ func apiLiveConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiLiveMultConfig(w http.ResponseWriter, r *http.Request) {
-	wsURL := strings.TrimSpace(conf.System.LiveMultWS)
-	if wsURL == "" {
-		wsURL = "wss://js.nrlptt.com/ws/calls"
+	server := strings.TrimSpace(conf.System.Server)
+	server = strings.TrimRight(server, "/")
+	server = strings.TrimPrefix(server, "https://")
+	server = strings.TrimPrefix(server, "http://")
+	server = strings.TrimPrefix(server, "wss://")
+	server = strings.TrimPrefix(server, "ws://")
+	if slash := strings.IndexByte(server, '/'); slash >= 0 {
+		server = server[:slash]
+	}
+	wsURL := ""
+	if server != "" {
+		wsURL = "wss://" + server + "/ws/calls"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"ws_url": wsURL})
+	json.NewEncoder(w).Encode(map[string]string{
+		"server": server,
+		"ws_url": wsURL,
+	})
 }
 
 // 列出所有日期目录（如 2025-10-13）

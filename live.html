@@ -87,6 +87,7 @@
             flex-shrink: 0;
             flex-wrap: wrap;
             gap: 16px;
+            transition: opacity 0.24s ease, transform 0.24s ease;
         }
 
         .header-left {
@@ -137,6 +138,27 @@
 
         .nav-link:hover {
             text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .nav-link[hidden] {
+            display: none;
+        }
+
+        body.start-screen header.glass {
+            z-index: 110;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            body.start-screen header.glass {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            body.start-screen header.glass:hover,
+            body.start-screen header.glass:focus-within {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .mute-btn {
@@ -632,14 +654,17 @@
     </style>
 </head>
 
-<body data-page-title="live">
+<body class="start-screen" data-page-title="live">
     <div class="container">
         <header class="glass">
             <div class="header-left">
                 <h1>NRL NANNY <span class="header-sub" data-i18n="live">LIVE</span></h1>
-                <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                <a href="/control" class="nav-link" data-auth-link hidden>🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
                 <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
                 <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                <a href="/login" class="nav-link" data-login-link>🔐 <span data-i18n="login">LOGIN</span></a>
+                <span class="nav-link" data-device-identity data-i18n-title="deviceIdentity">📻 --</span>
+                <span class="nav-link" data-server-identity data-i18n-title="serverIdentity">🌐 --</span>
                 <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
             </div>
             <div class="header-right">
@@ -696,6 +721,7 @@
 
     <script>
         const tr = (key, values) => NRLI18n.t(key, values);
+
         // ===== Debug =====
         function dbg(msg) {}
 
@@ -1010,6 +1036,7 @@ registerProcessor('pcm-player', PCMPlayerProcessor);`;
             dbg('START clicked');
             // FIRST: hide overlay, start WebSocket and rendering immediately
             document.getElementById('start-overlay').classList.add('hidden');
+            document.body.classList.remove('start-screen');
             dbg('Calling connectWS...');
             connectWS();
             dbg('Calling initAudioSafe...');

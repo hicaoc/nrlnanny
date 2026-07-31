@@ -261,10 +261,14 @@
         <header class="glass header-bar">
             <div class="header-left">
                 <h1>NRL NANNY <span class="header-sub" data-i18n="browser">BROWSER</span></h1>
-                <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                <a href="/control" class="nav-link" data-auth-link hidden>🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
                 <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
                 <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
+                <a href="/login" class="nav-link" data-login-link>🔐 <span data-i18n="login">LOGIN</span></a>
+                <span class="nav-link" data-device-identity data-i18n-title="deviceIdentity">📻 --</span>
+                <span class="nav-link" data-server-identity data-i18n-title="serverIdentity">🌐 --</span>
                 <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
+                <form action="/logout" method="post" data-auth-link hidden><button type="submit" class="nav-link" data-i18n="logout" style="background:transparent;border:0;cursor:pointer;">Sign out</button></form>
             </div>
         </header>
 

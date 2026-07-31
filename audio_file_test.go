@@ -7,10 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	waxaudio "github.com/colespringer/waxflow/audio"
+	waxcodec "github.com/colespringer/waxflow/codec"
+	waxaac "github.com/colespringer/waxflow/codec/aac"
+	waxcontainer "github.com/colespringer/waxflow/container"
+	"github.com/colespringer/waxflow/container/adts"
+	waxmp4 "github.com/colespringer/waxflow/container/mp4"
 )
 
 func TestSupportedAudioFiles(t *testing.T) {
-	for _, name := range []string{"voice.wav", "music.MP3", "archive.FlAc"} {
+	for _, name := range []string{"voice.wav", "music.MP3", "archive.FlAc", "radio.AAC", "raw.adts", "song.m4a", "video.MP4"} {
 		if !isSupportedAudioFile(name) {
 			t.Errorf("isSupportedAudioFile(%q) = false", name)
 		}
@@ -19,6 +26,100 @@ func TestSupportedAudioFiles(t *testing.T) {
 		if isSupportedAudioFile(name) {
 			t.Errorf("isSupportedAudioFile(%q) = true", name)
 		}
+	}
+}
+
+func TestMusicFilenameRegexIncludesAACContainers(t *testing.T) {
+	for _, name := range []string{"song-0001.aac", "song-0002.M4A", "song-0003.mp4"} {
+		if !MusicfilenameRegex.MatchString(name) {
+			t.Errorf("MusicfilenameRegex does not match %q", name)
+		}
+	}
+}
+
+func TestDecodeEmbeddedAACFiles(t *testing.T) {
+	format := waxaudio.Format{
+		Rate:     44100,
+		Channels: 2,
+		Layout:   waxaudio.DefaultLayout(2),
+		Type:     waxaudio.Float,
+		BitDepth: 32,
+	}
+	encoder, err := waxaac.NewEncoder(format, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var encoded bytes.Buffer
+	muxer := adts.NewMuxer(&encoded)
+	track := waxcontainer.Track{
+		ID:          0,
+		Codec:       waxcodec.AACLC,
+		CodecConfig: encoder.CodecConfig(),
+		Fmt:         format,
+		Samples:     4096,
+	}
+	if err := muxer.Begin([]waxcontainer.Track{track}); err != nil {
+		t.Fatal(err)
+	}
+	var m4a bytes.Buffer
+	mp4Muxer := waxmp4.NewMuxer(&m4a, nil)
+	mp4Track := track
+	mp4Track.Delay = int64(encoder.Delay())
+	if err := mp4Muxer.Begin([]waxcontainer.Track{mp4Track}); err != nil {
+		t.Fatal(err)
+	}
+	emit := func(packet waxcodec.Packet) error {
+		wrapped := waxcontainer.Packet{Track: 0, Packet: packet}
+		if err := muxer.WritePacket(wrapped); err != nil {
+			return err
+		}
+		return mp4Muxer.WritePacket(wrapped)
+	}
+	for offset := 0; offset < 4096; offset += 1024 {
+		buffer := waxaudio.Get(format, 1024)
+		buffer.N = 1024
+		for i := range 1024 {
+			sample := float32(0.3 * math.Sin(2*math.Pi*440*float64(offset+i)/float64(format.Rate)))
+			buffer.ChanF(0)[i] = sample
+			buffer.ChanF(1)[i] = sample
+		}
+		if err := encoder.Encode(buffer, emit); err != nil {
+			waxaudio.Put(buffer)
+			t.Fatal(err)
+		}
+		waxaudio.Put(buffer)
+	}
+	trailer, err := encoder.Finish(emit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := muxer.End(trailer); err != nil {
+		t.Fatal(err)
+	}
+	if err := mp4Muxer.End(trailer); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, fixture := range []struct {
+		name string
+		data []byte
+	}{
+		{name: "embedded-0001.aac", data: encoded.Bytes()},
+		{name: "embedded-0002.m4a", data: m4a.Bytes()},
+	} {
+		t.Run(filepath.Ext(fixture.name), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), fixture.name)
+			if err := os.WriteFile(path, fixture.data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			pcm, err := decodeAudioFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(pcm) < 1000 {
+				t.Fatalf("decoded AAC samples = %d, want a non-empty resampled stream", len(pcm))
+			}
+		})
 	}
 }
 
@@ -104,6 +205,8 @@ func TestDecodeCompressedAudioFixtures(t *testing.T) {
 	}{
 		{name: "MP3", env: "NRLNANNY_TEST_MP3"},
 		{name: "FLAC", env: "NRLNANNY_TEST_FLAC"},
+		{name: "AAC", env: "NRLNANNY_TEST_AAC"},
+		{name: "M4A", env: "NRLNANNY_TEST_M4A"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := os.Getenv(tc.env)

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -142,31 +143,41 @@ func NRL21parser(nrl *NRL21packet) {
 
 		log.Printf("AT指令:%v=%v \n", at.command, at.value)
 
-		switch at.command {
+		command := strings.ToUpper(strings.TrimSpace(at.command))
+		value := strings.TrimSpace(at.value)
+		includeRadioList := false
+		switch command {
 		case "AT+PLAY_ID":
-			id, err := strconv.Atoi(at.value)
+			id, err := strconv.Atoi(value)
 			if err != nil {
 				return
 			}
+			switchToLocalMusic()
 			PlayMusicByID(id)
 		case "AT+PAUSE":
+			if isRadioPlaying() {
+				stopRadio()
+				break
+			}
 			select {
 			case pausemusic <- true:
 			default:
 			}
 		case "AT+NEXT":
+			switchToLocalMusic()
 			select {
 			case nextmusic <- true:
 			default:
 			}
 		case "AT+PREW":
+			switchToLocalMusic()
 			select {
 			case lastmusic <- true:
 			default:
 			}
 
 		case "AT+DUCK_SCALE":
-			value, err := strconv.Atoi(at.value)
+			value, err := strconv.Atoi(value)
 			if err != nil {
 				log.Println("AT+DUCK_SCALE", err)
 				return
@@ -182,7 +193,7 @@ func NRL21parser(nrl *NRL21packet) {
 
 		case "AT+DUCK_MIC":
 
-			if at.value == "ON" {
+			if strings.EqualFold(value, "ON") {
 				conf.System.DuckMicPCM = true
 			} else {
 				conf.System.DuckMicPCM = false
@@ -192,7 +203,7 @@ func NRL21parser(nrl *NRL21packet) {
 
 		case "AT+DUCK_MUSIC":
 
-			if at.value == "ON" {
+			if strings.EqualFold(value, "ON") {
 				conf.System.DuckMusicPCM = true
 			} else {
 				conf.System.DuckMusicPCM = false
@@ -202,9 +213,9 @@ func NRL21parser(nrl *NRL21packet) {
 
 		case "AT+VOLUME":
 
-			log.Println("AT+VOLUME", at.value)
+			log.Println("AT+VOLUME", value)
 
-			value, err := strconv.Atoi(at.value)
+			value, err := strconv.Atoi(value)
 			if err != nil {
 				log.Println("AT+VOLUME", err)
 				return
@@ -218,6 +229,49 @@ func NRL21parser(nrl *NRL21packet) {
 			updateVolumeDisplay()
 			log.Println("VOLUME", conf.System.Volume)
 
+		case "AT+OPUS", "AT+SEND_OPUS":
+			switch strings.ToUpper(value) {
+			case "ON", "1", "TRUE":
+				conf.System.SendOpus = true
+				setSendOpusEnabled(true)
+				saveConfig()
+			case "OFF", "0", "FALSE":
+				conf.System.SendOpus = false
+				setSendOpusEnabled(false)
+				saveConfig()
+			case "?":
+				// Status is returned below.
+			default:
+				log.Printf("invalid %s value: %s", command, value)
+			}
+
+		case "AT+RADIO_PLAY":
+			if err := startRadio(value); err != nil {
+				log.Printf("AT+RADIO_PLAY failed: %v", err)
+			}
+		case "AT+RADIO_STOP":
+			stopRadio()
+		case "AT+RADIO_LIST", "AT+RADIO_STATUS":
+			includeRadioList = command == "AT+RADIO_LIST"
+		case "AT+RADIO_ADD":
+			parts := strings.SplitN(value, ",", 2)
+			if len(parts) != 2 {
+				log.Printf("AT+RADIO_ADD expects name,url")
+				break
+			}
+			if _, err := saveRadioStation("", parts[0], parts[1]); err != nil {
+				log.Printf("AT+RADIO_ADD failed: %v", err)
+			} else {
+				saveConfig()
+				includeRadioList = true
+			}
+		case "AT+RADIO_DELETE":
+			if err := deleteRadioStation(value); err != nil {
+				log.Printf("AT+RADIO_DELETE failed: %v", err)
+			} else {
+				saveConfig()
+			}
+
 		}
 
 		volume := fmt.Sprintf("%d", int(conf.System.Volume*100))
@@ -230,7 +284,35 @@ func NRL21parser(nrl *NRL21packet) {
 			duckmusic = "ON"
 		}
 		duckscale := fmt.Sprintf("%d", int(conf.System.DuckScale*100))
-		atcommand := encodeAT([]string{"AT+PLAY_ID=1", "AT+PREW=1", "AT+NEXT=1", "AT+PAUSE=1", "AT+VOLUME=" + volume, "AT+DUCK_MIC=" + duckmic, "AT+DUCK_MUSIC=" + duckmusic, "AT+DUCK_SCALE=" + duckscale})
+		opus := "OFF"
+		if isSendOpusEnabled() {
+			opus = "ON"
+		}
+		stations, activeID, radioPlaying, radioStatus := radioSnapshot()
+		radioOn := "OFF"
+		if radioPlaying {
+			radioOn = "ON"
+		}
+		response := []string{"AT+PLAY_ID=1", "AT+PREW=1", "AT+NEXT=1", "AT+PAUSE=1", "AT+VOLUME=" + volume, "AT+DUCK_MIC=" + duckmic, "AT+DUCK_MUSIC=" + duckmusic, "AT+DUCK_SCALE=" + duckscale, "AT+OPUS=" + opus, "AT+RADIO_PLAY=<ID>", "AT+RADIO_STOP=1", "AT+RADIO_LIST=1", "AT+RADIO=" + radioOn + "," + activeID + "," + strings.ToUpper(radioStatus), fmt.Sprintf("AT+RADIO_COUNT=%d", len(stations))}
+		if includeRadioList {
+			responseSize := 0
+			for _, line := range response {
+				responseSize += len(line) + 2
+			}
+			for i, station := range stations {
+				if i >= 20 {
+					break
+				}
+				name := strings.NewReplacer("\r", " ", "\n", " ", ",", " ").Replace(station.Name)
+				line := fmt.Sprintf("AT+RADIO_%d=%s,%s", i+1, station.ID, name)
+				if responseSize+len(line)+2 > 1100 {
+					break
+				}
+				response = append(response, line)
+				responseSize += len(line) + 2
+			}
+		}
+		atcommand := encodeAT(response)
 
 		packet := encodeNRL21(conf.System.Callsign, conf.System.SSID, 11, 250, calculateCpuId(conf.System.Callsign+string(conf.System.SSID)), atcommand)
 		dev.udpSocket.Write(packet)

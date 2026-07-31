@@ -14,11 +14,14 @@ import (
 var cronPCM = make(chan [][]int, 3)
 var timePCM = make(chan [][]int, 3)
 var musicPCM = make(chan [][]int, 3)
+var radioPCM = make(chan [][]int, 3)
 var micPCM = make(chan [][]int, 3)
 
 var nextmusic = make(chan bool, 1)
 var lastmusic = make(chan bool, 1)
 var pausemusic = make(chan bool, 1)
+var stopmusic = make(chan bool, 1)
+var startmusic = make(chan bool, 1)
 
 func main() {
 
@@ -45,6 +48,8 @@ func main() {
 	go playAudio()
 
 	go playMusic()
+
+	go startRadioFromConfig()
 
 	// Remove old keyboard listener
 	// go keyboardrun()

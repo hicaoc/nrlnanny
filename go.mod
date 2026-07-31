@@ -16,6 +16,8 @@ require (
 require github.com/go-ole/go-ole v1.3.0
 
 require (
+	github.com/bluenviron/gohlslib/v2 v2.4.1
+	github.com/colespringer/waxflow v0.0.0-20260730025520-35107bc1aae3
 	github.com/gorilla/websocket v1.5.3
 	github.com/kazzmir/opus-go v1.3.0
 	github.com/mewkiz/flac v1.0.13
@@ -28,8 +30,13 @@ require (
 )
 
 require (
+	github.com/abema/go-mp4 v1.7.1 // indirect
+	github.com/asticode/go-astikit v0.30.0 // indirect
+	github.com/asticode/go-astits v1.15.0 // indirect
+	github.com/bluenviron/mediacommon/v2 v2.9.2 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 )

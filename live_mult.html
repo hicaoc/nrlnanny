@@ -55,6 +55,7 @@
         .nav { gap: 12px; }
         .nav-link { color: var(--cyan); text-decoration: none; font-size: .78rem; font-weight: 700; letter-spacing: .08em; }
         .nav-link:hover { text-shadow: 0 0 12px var(--cyan); }
+        .nav-link[hidden] { display: none; }
         .language-toggle { border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px; color: var(--cyan); background: rgba(0,210,255,.08); cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
         .language-toggle:hover { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,210,255,.2); }
         .status { color: var(--muted); font-size: .75rem; letter-spacing: .06em; }
@@ -130,9 +131,12 @@
             <div class="header-left">
                 <h1>NRL NANNY <span data-i18n="liveMult">LIVE MULT</span></h1>
                 <nav class="nav">
-                    <a href="/" class="nav-link">🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
+                    <a href="/control" class="nav-link" data-auth-link hidden>🧭 <span data-i18n="dashboard">DASHBOARD</span></a>
                     <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
                     <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                    <a href="/login" class="nav-link" data-login-link>🔐 <span data-i18n="login">LOGIN</span></a>
+                    <span class="nav-link" data-device-identity data-i18n-title="deviceIdentity">📻 --</span>
+                    <span class="nav-link" data-server-identity data-i18n-title="serverIdentity">🌐 --</span>
                 </nav>
             </div>
             <div class="status"><i id="ws-dot" class="dot"></i><span id="ws-status" data-i18n="connecting">正在连接</span><button id="language-toggle" class="language-toggle" type="button" data-language-toggle onclick="NRLI18n.toggle()">EN</button></div>

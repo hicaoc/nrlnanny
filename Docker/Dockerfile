@@ -10,4 +10,3 @@ RUN apt install libasound2-dev  tzdata -y
 COPY start.sh /nrlnanny/
 ENV TZ=Asia/Shanghai
 ENTRYPOINT ["/nrlnanny/start.sh"]
-

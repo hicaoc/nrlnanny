@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>NRL Nanny - Login</title>
+    <script src="/i18n.js" defer></script>
+    <style>
+        :root { color-scheme:dark; --bg:#080b12; --panel:rgba(19,25,38,.9); --text:#eef6ff; --dim:#8d9bb0; --accent:#00d2ff; --blue:#3a7bd5; --danger:#ff8f8f; }
+        * { box-sizing:border-box; }
+        body { min-height:100vh; margin:0; display:grid; place-items:center; padding:20px; color:var(--text); background:radial-gradient(circle at 25% 10%,#142540 0,transparent 38%),var(--bg); font-family:Inter,system-ui,sans-serif; }
+        .card { width:min(420px,100%); padding:28px; border:1px solid rgba(255,255,255,.1); border-radius:18px; background:var(--panel); box-shadow:0 24px 70px rgba(0,0,0,.4); backdrop-filter:blur(16px); }
+        h1 { margin:0 0 6px; font-size:1.35rem; letter-spacing:.08em; }
+        .subtitle { margin:0 0 24px; color:var(--dim); }
+        label { display:block; margin:14px 0 6px; color:var(--dim); font-size:.82rem; }
+        input { width:100%; padding:12px; color:var(--text); background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.13); border-radius:10px; outline:none; }
+        input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,210,255,.1); }
+        .submit { width:100%; margin-top:20px; padding:12px; color:white; font-weight:700; border:0; border-radius:10px; cursor:pointer; background:linear-gradient(135deg,var(--blue),var(--accent)); }
+        .error { margin:12px 0 0; color:var(--danger); font-size:.84rem; }
+        .links { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:20px; }
+        a,.language { color:var(--accent); text-decoration:none; background:none; border:0; cursor:pointer; }
+    </style>
+</head>
+<body data-page-title="login">
+    <main class="card">
+        <h1>NRL NANNY</h1>
+        <p class="subtitle" data-i18n="controlLogin">Control panel login</p>
+        <form method="post" action="/login">
+            <input type="hidden" id="next" name="next" value="/control">
+            <label for="username" data-i18n="username">Username</label>
+            <input id="username" name="username" autocomplete="username" required autofocus>
+            <label for="password" data-i18n="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <p id="login-error" class="error" data-i18n="invalidCredentials" hidden>Invalid username or password</p>
+            <button class="submit" type="submit" data-i18n="signIn">Sign in</button>
+        </form>
+        <div class="links">
+            <a href="/" data-i18n="live">LIVE</a>
+            <a href="/live-mult" data-i18n="liveMult">LIVE MULT</a>
+            <button class="language" type="button" data-language-toggle onclick="NRLI18n.toggle()"></button>
+        </div>
+    </main>
+    <script>
+        const params = new URLSearchParams(location.search);
+        document.getElementById('next').value = '/control';
+        document.getElementById('login-error').hidden = params.get('error') !== '1';
+    </script>
+</body>
+</html>

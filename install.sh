@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 cp nrlnanny.service /lib/systemd/system/
 
 systemctl daemon-reload

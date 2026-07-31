@@ -16,7 +16,7 @@ func decodeAT(data []byte) *atCommand {
 		return nil
 	}
 
-	str := strings.Split(string(data[1:]), "=")
+	str := strings.SplitN(string(data[1:]), "=", 2)
 
 	if len(str) != 2 {
 		return nil

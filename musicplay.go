@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	MusicfilenameRegex = regexp.MustCompile(`(?i)-(\d{4})\.(wav|mp3|flac)$`)
+	MusicfilenameRegex = regexp.MustCompile(`(?i)-(\d{4})\.(wav|mp3|flac|aac|adts|m4a|mp4)$`)
 )
 
 // 全局状态
@@ -314,6 +314,14 @@ func playNextMusic() {
 			case <-lastmusic:
 				forcePrevious = true
 				break tag
+			case <-stopmusic:
+				playstatus = false
+				conf.System.MusicPlaying = false
+				saveConfig()
+			case <-startmusic:
+				playstatus = true
+				conf.System.MusicPlaying = true
+				saveConfig()
 			default:
 			}
 
@@ -335,6 +343,14 @@ func playNextMusic() {
 					case <-lastmusic:
 						forcePrevious = true
 						break tag
+					case <-stopmusic:
+						playstatus = false
+						conf.System.MusicPlaying = false
+						saveConfig()
+					case <-startmusic:
+						playstatus = true
+						conf.System.MusicPlaying = true
+						saveConfig()
 					default:
 						time.Sleep(time.Millisecond * 100)
 					}

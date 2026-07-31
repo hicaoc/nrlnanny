@@ -7,6 +7,8 @@
       micCapture: '麦克风采集', voiceRecording: '语音录音', opusTx: 'Opus 发射 (16 kHz)', beaconCron: '定时信标',
       timePlayback: '整点报时', duckScale: '闪避比例', musicDucking: '音乐闪避', micDucking: '麦克风闪避',
       previous: '上一首', playPause: '播放/暂停', next: '下一首',
+      previousStation: '上一个电台', radioPlayPause: '播放/停止电台', nextStation: '下一个电台',
+      currentStation: '当前电台', noStationSelected: '未选择电台',
       connecting: '正在连接', connected: '已连接', reconnecting: '正在重连', timeoutRetry: '超时重试',
       mute: '静音', unmute: '取消静音', broadcastTopic: '直播主题', liveBroadcast: '实时直播', standby: '待机',
       commLog: '通话记录', waitingTransmissions: '等待通话…', startListening: '开始监听', tapResumeAudio: '点击恢复音频',
@@ -18,6 +20,13 @@
       loadingRooms: '正在获取房间列表…', recentCalls: '最近 20 次通话', noCalls: '暂无通话记录', noMatchingRooms: '没有匹配的房间',
       noRooms: '暂无可用房间', unnamedRoom: '未命名房间', idle: '空闲', clickListen: '○ 点击监听', nowListening: '● 正在监听',
       wsNotConnected: 'WebSocket 尚未连接', audioUnsupportedShort: '当前浏览器不支持音频播放', configFailed: '配置加载失败', configLoadFailed: '无法加载直播配置：{error}',
+      localMusic: '本地音乐', networkRadio: '网络电台', radioName: '电台名称', radioURL: 'MP3 / M3U8 网络地址', radioSave: '收藏电台', radioUpdate: '保存修改', radioCancel: '取消',
+      radioPlay: '播放', radioStop: '停止电台', radioEdit: '编辑', radioDelete: '删除', radioEmpty: '还没有收藏网络电台', radioDeleteConfirm: '确定删除这个电台吗？',
+      radioStopped: '已停止', radioConnecting: '正在连接', radioPlaying: '正在转发', radioReconnecting: '正在重连', radioRequestFailed: '网络电台操作失败',
+      deviceIdentity: '当前保姆：呼号-SSID',
+      serverIdentity: '当前连接的 NRL 服务器',
+      login: '登录', controlLogin: '控制台登录', username: '用户名', password: '密码',
+      signIn: '登录', logout: '退出登录', invalidCredentials: '用户名或密码错误',
       language: 'English'
     },
     en: {
@@ -27,6 +36,8 @@
       micCapture: 'Mic Capture', voiceRecording: 'Voice Recording', opusTx: 'Opus TX (16 kHz)', beaconCron: 'Beacon Cron',
       timePlayback: 'Time Playback', duckScale: 'Duck Scale', musicDucking: 'Music Ducking', micDucking: 'Mic Ducking',
       previous: 'Previous', playPause: 'Play/Pause', next: 'Next',
+      previousStation: 'Previous station', radioPlayPause: 'Play/Stop radio', nextStation: 'Next station',
+      currentStation: 'Current station', noStationSelected: 'No station selected',
       connecting: 'CONNECTING', connected: 'CONNECTED', reconnecting: 'RECONNECTING', timeoutRetry: 'TIMEOUT-RETRY',
       mute: 'MUTE', unmute: 'UNMUTE', broadcastTopic: 'BROADCAST TOPIC', liveBroadcast: 'Live Broadcast', standby: 'STANDBY',
       commLog: 'Comm Log', waitingTransmissions: 'Waiting for transmissions…', startListening: 'START LISTENING', tapResumeAudio: 'TAP TO RESUME AUDIO',
@@ -38,6 +49,13 @@
       loadingRooms: 'Loading room list…', recentCalls: 'Last 20 calls', noCalls: 'No call records', noMatchingRooms: 'No matching rooms',
       noRooms: 'No rooms available', unnamedRoom: 'Unnamed room', idle: 'Idle', clickListen: '○ CLICK TO LISTEN', nowListening: '● LISTENING',
       wsNotConnected: 'WebSocket is not connected', audioUnsupportedShort: 'Your browser does not support audio playback', configFailed: 'Configuration failed', configLoadFailed: 'Could not load live configuration: {error}',
+      localMusic: 'Local Music', networkRadio: 'Internet Radio', radioName: 'Station name', radioURL: 'MP3 / M3U8 stream URL', radioSave: 'Save station', radioUpdate: 'Save changes', radioCancel: 'Cancel',
+      radioPlay: 'Play', radioStop: 'Stop radio', radioEdit: 'Edit', radioDelete: 'Delete', radioEmpty: 'No saved internet radio stations', radioDeleteConfirm: 'Delete this station?',
+      radioStopped: 'Stopped', radioConnecting: 'Connecting', radioPlaying: 'Forwarding', radioReconnecting: 'Reconnecting', radioRequestFailed: 'Internet radio request failed',
+      deviceIdentity: 'Current nanny: callsign-SSID',
+      serverIdentity: 'Connected NRL server',
+      login: 'Login', controlLogin: 'Control panel login', username: 'Username', password: 'Password',
+      signIn: 'Sign in', logout: 'Sign out', invalidCredentials: 'Invalid username or password',
       language: '中文'
     }
   };
@@ -55,6 +73,23 @@
     document.querySelectorAll('[data-language-toggle]').forEach(el => { el.textContent = t('language'); el.setAttribute('aria-label', t('language')); });
     document.title = `NRL Nanny - ${t(document.body.dataset.pageTitle || 'dashboard')}`;
   }
-  window.NRLI18n = { t, apply, get language() { return language; }, toggle() { language = language === 'zh' ? 'en' : 'zh'; localStorage.setItem('nrlnanny-language', language); apply(); document.dispatchEvent(new CustomEvent('nrlnanny-language-change')); } };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true }); else apply();
+  async function loadDeviceIdentity() {
+    try {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      if (!response.ok) return;
+      const state = await response.json();
+      const authorized = state.control_enabled !== false && state.authenticated === true;
+      document.querySelectorAll('[data-auth-link]').forEach(el => { el.hidden = !authorized; });
+      document.querySelectorAll('[data-login-link]').forEach(el => { el.hidden = authorized || state.control_enabled === false; });
+      const callsign = String(state.callsign || '').trim();
+      const identity = callsign ? `${callsign}-${state.ssid}` : '--';
+      document.querySelectorAll('[data-device-identity]').forEach(el => { el.textContent = `📻 ${identity}`; });
+      const server = String(state.server || '').trim();
+      const endpoint = server ? `${server}${state.port ? `:${state.port}` : ''}` : '--';
+      document.querySelectorAll('[data-server-identity]').forEach(el => { el.textContent = `🌐 ${endpoint}`; });
+    } catch (_) {}
+  }
+  window.NRLI18n = { t, apply, loadDeviceIdentity, get language() { return language; }, toggle() { language = language === 'zh' ? 'en' : 'zh'; localStorage.setItem('nrlnanny-language', language); apply(); document.dispatchEvent(new CustomEvent('nrlnanny-language-change')); } };
+  const initialize = () => { apply(); loadDeviceIdentity(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true }); else initialize();
 })();

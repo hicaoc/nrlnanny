@@ -180,6 +180,27 @@
             flex-wrap: wrap;
         }
 
+        .source-controls[hidden] {
+            display: none;
+        }
+
+        .active-source {
+            min-width: 0;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.76rem;
+        }
+
+        .active-source strong {
+            display: block;
+            margin-top: 5px;
+            overflow: hidden;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .btn-circle {
             width: 56px;
             height: 56px;
@@ -200,6 +221,13 @@
             transform: translateY(-2px);
             border-color: var(--accent-glow);
             box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+
+        .btn-circle:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .btn-main {
@@ -243,14 +271,79 @@
         }
 
         /* Playlist */
+        .source-tabs {
+            margin-top: 0;
+        }
+
+        .source-tab-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+            padding: 5px;
+            margin-bottom: 12px;
+            background: rgba(0, 0, 0, 0.24);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+        }
+
+        .source-tab {
+            padding: 9px 12px;
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .source-tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .source-tab.active {
+            color: var(--text-main);
+            background: linear-gradient(135deg, rgba(58, 123, 213, 0.3), rgba(0, 210, 255, 0.16));
+            border-color: rgba(0, 210, 255, 0.42);
+            box-shadow: 0 0 16px rgba(0, 210, 255, 0.1);
+        }
+
+        .source-panel[hidden] {
+            display: none;
+        }
+
         .playlist-card {
-            margin-top: 10px;
+            margin-top: 0;
         }
 
         .scroll-area {
             max-height: 320px;
             overflow-y: auto;
             scrollbar-width: thin;
+            scrollbar-color: var(--accent-primary) rgba(255, 255, 255, 0.04);
+            padding-right: 4px;
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scroll-area::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 999px;
+        }
+
+        .scroll-area::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--accent-glow), var(--accent-primary));
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            border-radius: 999px;
+        }
+
+        .scroll-area::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #5ee7ff, #5b8def);
+            background-clip: padding-box;
         }
 
         .song-item {
@@ -428,6 +521,28 @@
             margin-top: 10px;
         }
 
+        .radio-card { margin-top: 0; padding: 16px; border-radius: 14px; background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.08); }
+        .radio-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+        .radio-header h2 { margin:0; }
+        .radio-status { color:var(--text-dim); font-size:.72rem; letter-spacing:.08em; }
+        .radio-status.playing { color:var(--accent-success); }
+        .radio-form { display:grid; grid-template-columns: minmax(110px,.7fr) minmax(180px,1.3fr) auto; gap:8px; }
+        .radio-input { width:100%; min-width:0; padding:9px 10px; color:var(--text-main); background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.13); border-radius:9px; }
+        .radio-input:focus { border-color:var(--accent-glow); }
+        .radio-button { padding:8px 11px; color:var(--text-main); background:rgba(58,123,213,.22); border:1px solid rgba(0,210,255,.35); border-radius:9px; cursor:pointer; }
+        .radio-button:hover { border-color:var(--accent-glow); }
+        .radio-button.danger { color:#ffb4b4; border-color:rgba(255,82,82,.35); background:rgba(255,82,82,.1); }
+        .radio-list { display:flex; flex-direction:column; gap:7px; margin-top:12px; }
+        .radio-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:rgba(255,255,255,.03); }
+        .radio-item.selected { border-color:rgba(0,210,255,.42); }
+        .radio-item.active { border-color:var(--accent-success); background:rgba(0,255,136,.07); }
+        .radio-info { min-width:0; flex:1; }
+        .radio-name { display:block; font-weight:600; }
+        .radio-url { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); font-size:.7rem; }
+        .radio-actions { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+        .radio-empty { padding:14px; text-align:center; color:var(--text-dim); font-size:.78rem; }
+        .radio-footer { display:flex; gap:8px; margin-top:10px; }
+
         @media (max-width: 640px) {
             body {
                 padding: 12px;
@@ -503,6 +618,10 @@
                 align-items: flex-start;
                 gap: 6px;
             }
+
+            .radio-form { grid-template-columns:1fr; }
+            .radio-item { align-items:flex-start; flex-direction:column; }
+            .radio-actions { width:100%; justify-content:flex-start; }
         }
     </style>
 </head>
@@ -515,7 +634,10 @@
                 <a href="/live" class="nav-link">📡 <span data-i18n="live">LIVE</span></a>
                 <a href="/live-mult" class="nav-link">🎧 <span data-i18n="liveMult">LIVE MULT</span></a>
                 <a href="/play" class="nav-link">📂 <span data-i18n="browser">BROWSER</span></a>
+                <span class="nav-link" data-device-identity data-i18n-title="deviceIdentity">📻 --</span>
+                <span class="nav-link" data-server-identity data-i18n-title="serverIdentity">🌐 --</span>
                 <button type="button" class="nav-link" data-language-toggle onclick="NRLI18n.toggle()" style="background:transparent;border:1px solid currentColor;border-radius:8px;padding:4px 8px;cursor:pointer;"></button>
+                <form action="/logout" method="post" style="display:inline;"><button type="submit" class="nav-link" data-i18n="logout" style="background:transparent;border:0;cursor:pointer;">Sign out</button></form>
             </div>
             <div class="header-right">
                 <div class="system-pill"><span class="status-dot"></span><span
@@ -529,11 +651,29 @@
             <section class="glass player-controls">
                 <h2><span style="color:var(--accent-glow);">●</span> <span data-i18n="centerStage">Center Stage</span></h2>
 
-                <div class="control-btns">
+                <div class="source-tab-list" role="tablist">
+                    <button id="source-tab-local" class="source-tab active" type="button" role="tab" aria-controls="source-panel-local" aria-selected="true" onclick="setSourceTab('local')" data-i18n="localMusic">Local Music</button>
+                    <button id="source-tab-radio" class="source-tab" type="button" role="tab" aria-controls="source-panel-radio" aria-selected="false" onclick="setSourceTab('radio')" data-i18n="networkRadio">Internet Radio</button>
+                </div>
+
+                <div id="local-source-controls" class="source-controls control-btns">
                     <button class="btn-circle" onclick="control('prev')" data-i18n-title="previous" title="Previous">⏮</button>
                     <button class="btn-circle btn-main" id="btn-pause" onclick="control('pause')"
                         data-i18n-title="playPause" title="Play/Pause">⏸</button>
                     <button class="btn-circle" onclick="control('next')" data-i18n-title="next" title="Next">⏭</button>
+                </div>
+
+                <div id="radio-source-controls" class="source-controls" hidden>
+                    <div class="active-source">
+                        <span data-i18n="currentStation">Current station</span>
+                        <strong id="active-radio-name" data-i18n="noStationSelected">No station selected</strong>
+                    </div>
+                    <div class="control-btns" style="margin-top:12px;">
+                        <button class="btn-circle" id="btn-radio-prev" onclick="radioControl(-1)" data-i18n-title="previousStation" title="Previous station">⏮</button>
+                        <button class="btn-circle btn-main" id="btn-radio-toggle" onclick="radioControl(0)"
+                            data-i18n-title="radioPlayPause" title="Play/Stop radio">▶</button>
+                        <button class="btn-circle" id="btn-radio-next" onclick="radioControl(1)" data-i18n-title="nextStation" title="Next station">⏭</button>
+                    </div>
                 </div>
 
                 <div class="volume-bar">
@@ -544,10 +684,32 @@
                         style="font-family:'JetBrains Mono'; min-width:45px; text-align:right;">100%</span>
                 </div>
 
-                <div class="playlist-card">
-                    <h2 data-i18n="playlist">Playlist</h2>
-                    <div class="scroll-area" id="playlist">
-                        <!-- Songs Here -->
+                <div class="source-tabs">
+                    <div id="source-panel-local" class="source-panel" role="tabpanel" aria-labelledby="source-tab-local">
+                        <div class="playlist-card">
+                            <h2 data-i18n="playlist">Playlist</h2>
+                            <div class="scroll-area" id="playlist">
+                                <!-- Songs Here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div id="source-panel-radio" class="source-panel" role="tabpanel" aria-labelledby="source-tab-radio" hidden>
+                        <div class="radio-card">
+                            <div class="radio-header">
+                                <h2 data-i18n="networkRadio">Internet Radio</h2>
+                                <span id="radio-status" class="radio-status">--</span>
+                            </div>
+                            <form class="radio-form" onsubmit="saveRadioStation(event)">
+                                <input id="radio-id" type="hidden">
+                                <input id="radio-name" class="radio-input" maxlength="100" required data-i18n-placeholder="radioName" placeholder="Station name">
+                                <input id="radio-url" class="radio-input" type="url" maxlength="2048" required data-i18n-placeholder="radioURL" placeholder="MP3 / M3U8 stream URL">
+                                <button id="radio-save" class="radio-button" type="submit" data-i18n="radioSave">Save station</button>
+                            </form>
+                            <div id="radio-list" class="radio-list scroll-area"></div>
+                            <div class="radio-footer">
+                                <button id="radio-cancel" class="radio-button" type="button" onclick="clearRadioForm()" data-i18n="radioCancel" hidden>Cancel</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -644,6 +806,36 @@
 
     <script>
         let currentPlayingID = -1;
+        let radioState = { stations: [], active_id: '', playing: false, status: 'stopped' };
+        const tr = (key, values) => NRLI18n.t(key, values);
+        const escapeHTML = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+
+        function setSourceTab(source) {
+            if (source !== 'local' && source !== 'radio') source = 'local';
+            const localActive = source === 'local';
+            document.getElementById('source-panel-local').hidden = !localActive;
+            document.getElementById('source-panel-radio').hidden = localActive;
+            document.getElementById('local-source-controls').hidden = !localActive;
+            document.getElementById('radio-source-controls').hidden = localActive;
+            const localTab = document.getElementById('source-tab-local');
+            const radioTab = document.getElementById('source-tab-radio');
+            localTab.classList.toggle('active', localActive);
+            radioTab.classList.toggle('active', !localActive);
+            localTab.setAttribute('aria-selected', String(localActive));
+            radioTab.setAttribute('aria-selected', String(!localActive));
+            localTab.tabIndex = localActive ? 0 : -1;
+            radioTab.tabIndex = localActive ? -1 : 0;
+            localStorage.setItem('nrlnanny-source-tab', source);
+            if (!localActive) renderRadio();
+        }
+
+        document.querySelector('.source-tab-list').addEventListener('keydown', event => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            const source = document.getElementById('source-tab-local').classList.contains('active') ? 'radio' : 'local';
+            setSourceTab(source);
+            document.getElementById(`source-tab-${source}`).focus();
+        });
 
         async function updateStatus() {
             try {
@@ -699,6 +891,115 @@
             } catch (e) { }
         }
 
+        function radioStatusText(status) {
+            return tr({ stopped:'radioStopped', connecting:'radioConnecting', playing:'radioPlaying', reconnecting:'radioReconnecting' }[status] || 'radioStopped');
+        }
+
+        function renderRadio() {
+            const statusEl = document.getElementById('radio-status');
+            statusEl.textContent = radioStatusText(radioState.status);
+            statusEl.classList.toggle('playing', radioState.playing);
+            const selected = radioState.stations.find(station => station.id === radioState.active_id) || radioState.stations[0];
+            document.getElementById('active-radio-name').textContent = selected ? selected.name : tr('noStationSelected');
+            const toggle = document.getElementById('btn-radio-toggle');
+            toggle.textContent = radioState.playing ? '⏹' : '▶';
+            toggle.disabled = !selected;
+            document.getElementById('btn-radio-prev').disabled = !selected;
+            document.getElementById('btn-radio-next').disabled = !selected;
+            const list = document.getElementById('radio-list');
+            if (!radioState.stations.length) {
+                list.innerHTML = `<div class="radio-empty">${tr('radioEmpty')}</div>`;
+                return;
+            }
+            list.innerHTML = radioState.stations.map(station => {
+                const active = radioState.playing && radioState.active_id === station.id;
+                const selected = radioState.active_id === station.id;
+                return `<div class="radio-item${selected ? ' selected' : ''}${active ? ' active' : ''}">
+                    <div class="radio-info"><span class="radio-name">${escapeHTML(station.name)}</span><span class="radio-url" title="${escapeHTML(station.url)}">${escapeHTML(station.url)}</span></div>
+                    <div class="radio-actions">
+                        <button class="radio-button" type="button" data-radio-action="play" data-radio-id="${escapeHTML(station.id)}">${tr('radioPlay')}</button>
+                        <button class="radio-button" type="button" data-radio-action="edit" data-radio-id="${escapeHTML(station.id)}">${tr('radioEdit')}</button>
+                        <button class="radio-button danger" type="button" data-radio-action="delete" data-radio-id="${escapeHTML(station.id)}">${tr('radioDelete')}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function updateRadio() {
+            try {
+                const response = await fetch('/api/radio', { cache: 'no-store' });
+                if (!response.ok) throw new Error(await response.text());
+                radioState = await response.json();
+                renderRadio();
+            } catch (error) { console.error('Radio sync error', error); }
+        }
+
+        async function postRadio(payload) {
+            const response = await fetch('/api/radio', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            if (!response.ok) throw new Error((await response.text()).trim() || tr('radioRequestFailed'));
+            radioState = await response.json();
+            renderRadio();
+        }
+
+        async function radioAction(action, id = '') {
+            try { await postRadio({ action, id }); updateStatus(); }
+            catch (error) { alert(`${tr('radioRequestFailed')}: ${error.message}`); }
+        }
+
+        function radioControl(direction) {
+            const stations = radioState.stations;
+            if (!stations.length) return;
+            let index = stations.findIndex(station => station.id === radioState.active_id);
+            if (index < 0) index = 0;
+            if (direction === 0) {
+                radioAction(radioState.playing ? 'stop' : 'play', stations[index].id);
+                return;
+            }
+            index = (index + direction + stations.length) % stations.length;
+            radioAction('play', stations[index].id);
+        }
+
+        async function saveRadioStation(event) {
+            event.preventDefault();
+            const id = document.getElementById('radio-id').value;
+            try {
+                await postRadio({ action:id ? 'update' : 'add', id, name:document.getElementById('radio-name').value, url:document.getElementById('radio-url').value });
+                clearRadioForm();
+            } catch (error) { alert(`${tr('radioRequestFailed')}: ${error.message}`); }
+        }
+
+        function editRadio(id) {
+            const station = radioState.stations.find(item => item.id === id);
+            if (!station) return;
+            document.getElementById('radio-id').value = station.id;
+            document.getElementById('radio-name').value = station.name;
+            document.getElementById('radio-url').value = station.url;
+            document.getElementById('radio-save').textContent = tr('radioUpdate');
+            document.getElementById('radio-cancel').hidden = false;
+        }
+
+        function clearRadioForm() {
+            document.getElementById('radio-id').value = '';
+            document.getElementById('radio-name').value = '';
+            document.getElementById('radio-url').value = '';
+            document.getElementById('radio-save').textContent = tr('radioSave');
+            document.getElementById('radio-cancel').hidden = true;
+        }
+
+        async function deleteRadio(id) {
+            if (!confirm(tr('radioDeleteConfirm'))) return;
+            try { await postRadio({ action:'delete', id }); clearRadioForm(); }
+            catch (error) { alert(`${tr('radioRequestFailed')}: ${error.message}`); }
+        }
+
+        document.getElementById('radio-list').addEventListener('click', event => {
+            const button = event.target.closest('[data-radio-action]');
+            if (!button) return;
+            if (button.dataset.radioAction === 'play') radioAction('play', button.dataset.radioId);
+            else if (button.dataset.radioAction === 'edit') editRadio(button.dataset.radioId);
+            else if (button.dataset.radioAction === 'delete') deleteRadio(button.dataset.radioId);
+        });
+
 
         async function control(action, id = 0, value = 0) {
             await fetch('/api/control', {
@@ -719,10 +1020,12 @@
             control('duck_scale', 0, val / 100);
         }
 
-        document.addEventListener('nrlnanny-language-change', updateStatus);
-        updateStatus(); updateMusic();
+        document.addEventListener('nrlnanny-language-change', () => { updateStatus(); renderRadio(); clearRadioForm(); });
+        setSourceTab(localStorage.getItem('nrlnanny-source-tab') || 'local');
+        updateStatus(); updateMusic(); updateRadio();
         setInterval(updateStatus, 1000);
         setInterval(updateMusic, 3000);
+        setInterval(updateRadio, 2000);
     </script>
 </body>
 
