@@ -16,6 +16,7 @@ var timePCM = make(chan [][]int, 3)
 var musicPCM = make(chan [][]int, 3)
 var radioPCM = make(chan [][]int, 3)
 var micPCM = make(chan [][]int, 3)
+var ttsPCM = make(chan [][]int, 30)
 
 var nextmusic = make(chan bool, 1)
 var lastmusic = make(chan bool, 1)
@@ -42,6 +43,7 @@ func main() {
 	time.Sleep(time.Second * 1)
 
 	go startcron()
+	go startTTSTaskScheduler()
 
 	go play()
 

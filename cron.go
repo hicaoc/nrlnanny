@@ -129,6 +129,13 @@ func recivePCM() {
 		default:
 		}
 
+		select {
+		case wav := <-ttsPCM:
+			hasBeaconActivity = true
+			mix16KSource(pcmbuf, wav[0], 1, sendOpus)
+		default:
+		}
+
 		// 4. 混音: 本地音乐或网络电台（网络电台优先，两个节目不会同时发送）
 		musicSource := musicPCM
 		if isRadioPlaying() {

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-//go:embed control.html play.html live.html live_mult.html login.html i18n.js
+//go:embed control.html play.html tts.html live.html live_mult.html login.html i18n.js
 var webAssets embed.FS
 
 type AudioFile struct {
@@ -41,7 +41,8 @@ func play() {
 	http.HandleFunc("/control", serveControl) // Authenticated dashboard
 	http.HandleFunc("/login", serveLogin)
 	http.HandleFunc("/logout", serveLogout)
-	http.HandleFunc("/play", servePlay)              // Public recordings browser
+	http.HandleFunc("/play", servePlay) // Public recordings browser
+	http.HandleFunc("/tts", serveTTS)
 	http.HandleFunc("/live", serveLive)              // Live broadcast page
 	http.HandleFunc("/live-mult", serveLiveMult)     // Multi-room live monitor page
 	http.HandleFunc("/ws/live", handleLiveWS)        // Live WebSocket (same port, reverse-proxy/mobile friendly)
@@ -56,6 +57,9 @@ func play() {
 	http.HandleFunc("/api/music", controlPageOnly(apiMusic))
 	http.HandleFunc("/api/radio", controlPageOnly(apiRadio))
 	http.HandleFunc("/api/control", controlPageOnly(apiControl))
+	http.HandleFunc("/api/tts/send", controlPageOnly(apiTTSSend))
+	http.HandleFunc("/api/tts/tasks", controlPageOnly(apiTTSTasks))
+	http.HandleFunc("/api/tts/task/", controlPageOnly(apiTTSTask))
 	http.HandleFunc("/api/live-config", apiLiveConfig)
 	http.HandleFunc("/api/live-mult-config", apiLiveMultConfig)
 	http.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +206,25 @@ func servePlay(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(content)
+}
+
+func serveTTS(w http.ResponseWriter, r *http.Request) {
+	if !conf.System.EnableControlPage {
+		http.NotFound(w, r)
+		return
+	}
+	if !controlAuthenticated(r) {
+		http.Redirect(w, r, "/login?next=/tts", http.StatusSeeOther)
+		return
+	}
+	content, err := webAssets.ReadFile("tts.html")
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(content)
 }
 
 func apiStatus(w http.ResponseWriter, r *http.Request) {

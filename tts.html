@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS 语音播报 - NRL Nanny</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #08090b;
+            --bg-surface: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --accent-glow: #00d2ff;
+            --accent-primary: #3a7bd5;
+            --accent-success: #00ff88;
+            --accent-warning: #ffaa00;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, #111827, var(--bg-deep));
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            height: 100vh;
+            overflow: auto;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: stretch;
+        }
+
+        header.glass {
+            width: 100%;
+        }
+
+        .main-panel {
+            flex: 0 0 auto;
+            width: 520px;
+        }
+
+        .task-panel {
+            flex: 1;
+            min-width: 360px;
+            display: flex;
+            max-height: calc(100vh - 120px);
+        }
+
+        .task-panel .glass {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .task-panel .task-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .glass {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        header.glass {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #fff, var(--text-dim));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .header-sub {
+            font-weight: 300;
+            opacity: 0.75;
+            background: none;
+            -webkit-text-fill-color: var(--text-dim);
+        }
+
+        .nav-link {
+            color: var(--accent-glow);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin: 0 0 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 14px 16px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        select.form-control {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+        }
+
+        select.form-control option {
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px 20px;
+            border-radius: 30px;
+            margin-bottom: 10px;
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            min-width: 60px;
+        }
+
+        .slider-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            min-width: 50px;
+            text-align: right;
+            color: var(--accent-glow);
+        }
+
+        input[type=range] {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .btn {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-glow));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 210, 255, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-dim);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-danger {
+            background: rgba(255, 80, 80, 0.15);
+            color: #ff8888;
+            border: 1px solid rgba(255, 80, 80, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 80, 80, 0.25);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 0.85rem;
+        }
+
+        .status-text {
+            color: var(--text-dim);
+        }
+
+        .status-text.playing {
+            color: var(--accent-success);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-text.playing::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            animation: pulse-status 1.5s infinite;
+        }
+
+        @keyframes pulse-status {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .task-list {
+            margin-top: 16px;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+            min-height: 40px;
+        }
+
+        .task-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .task-item.running {
+            border-color: var(--accent-success);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .task-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-glow);
+            margin-bottom: 4px;
+        }
+
+        .task-repeat {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .task-text {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 300px;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 12px;
+        }
+
+        .task-btn {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .task-btn.play {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--accent-success);
+        }
+
+        .task-btn.play:hover {
+            background: rgba(0, 255, 136, 0.25);
+        }
+
+        .task-btn.delete {
+            background: rgba(255, 80, 80, 0.15);
+            color: #ff8888;
+        }
+
+        .task-btn.delete:hover {
+            background: rgba(255, 80, 80, 0.25);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 420px;
+            background: linear-gradient(145deg, rgba(20, 25, 35, 0.95), rgba(10, 15, 25, 0.98));
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            border-radius: 20px;
+            overflow: hidden;
+            transform: scale(0.95) translateY(20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-overlay.show .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            background: linear-gradient(135deg, rgba(0, 210, 255, 0.1), transparent);
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .modal-body {
+            padding: 20px 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-footer .btn {
+            flex: 1;
+        }
+
+        .time-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .time-input-group input {
+            flex: 1;
+            padding: 12px;
+        }
+
+        .repeat-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .repeat-toggle label {
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .quick-phrases {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .quick-phrase {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-phrase:hover {
+            background: rgba(0, 210, 255, 0.15);
+            border-color: var(--accent-glow);
+            color: var(--accent-glow);
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+
+            header.glass {
+                width: 100%;
+            }
+
+            .main-panel {
+                width: 100%;
+            }
+
+            .task-panel {
+                width: 100%;
+                position: static;
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 12px;
+            }
+
+            .container {
+                gap: 14px;
+            }
+
+            .glass {
+                padding: 16px;
+            }
+
+            header.glass {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .btn-group .btn {
+                min-width: 100%;
+            }
+
+            .slider-container {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .slider-label, .slider-value {
+                min-width: auto;
+            }
+
+            input[type=range] {
+                width: 100%;
+            }
+
+            .task-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .task-actions {
+                margin-left: 0;
+            }
+
+            .task-text {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="glass">
+            <div class="header-left">
+                <h1>NRL NANNY <span class="header-sub">TTS 语音播报</span></h1>
+            </div>
+            <div style="display: flex; gap: 16px;">
+                <a href="/" class="nav-link">🧭 控制面板</a>
+                <a href="/play" class="nav-link">📂 录音文件</a>
+            </div>
+        </header>
+
+        <div class="main-panel">
+        <div class="glass" style="height: 665px;">
+            <h2><span style="color:var(--accent-glow);">●</span> 语音播报</h2>
+            
+            <div class="form-group">
+                <label class="form-label">输入文本</label>
+                <textarea id="tts-text" class="form-control" placeholder="请输入要合成的文本..."></textarea>
+                <div class="quick-phrases">
+                    <span class="quick-phrase" onclick="setQuickPhrase('CQ CQ CQ，这里是BG1XXX，呼叫任何电台')">CQ呼叫</span>
+                    <span class="quick-phrase" onclick="setQuickPhrase('抄收，信号59，音频清晰')">抄收确认</span>
+                    <span class="quick-phrase" onclick="setQuickPhrase('73，祝你愉快，再见')">七三祝福</span>
+                    <span class="quick-phrase" onclick="setQuickPhrase('这里是BG1XXX，正在进行语音测试')">呼号测试</span>
+                    <span class="quick-phrase" onclick="setQuickPhrase('QSL已确认，感谢通联')">QSL确认</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">选择语音</label>
+                <select id="tts-voice" class="form-control">
+                    <option value="">自动选择</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <div class="slider-container">
+                    <span class="slider-label">语速</span>
+                    <input type="range" id="tts-rate" min="0.5" max="2" step="0.1" value="1">
+                    <span class="slider-value" id="tts-rate-value">1.0x</span>
+                </div>
+                <div class="slider-container">
+                    <span class="slider-label">音调</span>
+                    <input type="range" id="tts-pitch" min="0" max="2" step="0.1" value="1">
+                    <span class="slider-value" id="tts-pitch-value">1.0</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="btn-play" onclick="playTTS()">
+                    <span>🔊</span> 播放
+                </button>
+                <button class="btn btn-secondary" id="btn-stop" onclick="stopTTS()" disabled>
+                    <span>⏹</span> 停止
+                </button>
+                <button class="btn btn-secondary" onclick="sendTTStoNRL()">
+                    <span>📡</span> 发送到NRL网络
+                </button>
+                <button class="btn btn-secondary" onclick="openAddTaskModal()">
+                    <span>⏰</span> 定时任务
+                </button>
+            </div>
+
+            <div class="status-bar">
+                <span class="status-text" id="tts-status">就绪</span>
+                <span class="status-text" id="tts-voices-count">加载语音中...</span>
+            </div>
+        </div>
+        </div>
+
+        <div class="task-panel">
+        <div class="glass" style="height: 665px;">
+            <h2><span style="color:var(--accent-warning);">●</span> 定时任务</h2>
+            <div class="task-list" id="task-list">
+                <div class="empty-state">暂无定时任务</div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="add-task-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">添加定时任务</div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">任务时间</label>
+                    <div class="time-input-group">
+                        <input type="time" id="task-time" class="form-control" required>
+                    </div>
+                </div>
+                <div class="repeat-toggle">
+                    <label>每天重复</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="task-repeat">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="repeat-toggle">
+                    <label>发送到NRL网络</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="task-send-nrl">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">播放文本</label>
+                    <textarea id="task-text" class="form-control" placeholder="请输入定时播放的文本..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddTaskModal()">取消</button>
+                <button class="btn btn-primary" onclick="addTask()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let synth = window.speechSynthesis;
+        let voices = [];
+        let currentUtterance = null;
+        let tasks = [];
+        let isLoggedIn = false;
+
+        async function checkLoginStatus() {
+            try {
+                const res = await fetch('/api/login/status?t=' + Date.now());
+                const data = await res.json();
+                isLoggedIn = data.logged_in === true;
+                updateNavLinks();
+            } catch (e) {
+                console.log('check login status failed: ' + e.message);
+            }
+        }
+
+        function updateNavLinks() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === '/play') {
+                    link.style.display = isLoggedIn ? '' : 'none';
+                }
+            });
+        }
+
+        function loadVoices() {
+            voices = synth.getVoices();
+            const select = document.getElementById('tts-voice');
+            select.innerHTML = '<option value="">自动选择</option>';
+            
+            const allowedLangs = ['zh-CN', 'zh-HK', 'zh-TW', 'en-US', 'ko-KR', 'ja-JP'];
+            
+            const langTranslations = {
+                'zh-CN': '普通话',
+                'zh-HK': '粤语',
+                'zh-TW': '台语',
+                'en-US': '美式英语',
+                'ko-KR': '韩语',
+                'ja-JP': '日语'
+            };
+            
+            const nameTranslations = {
+                'Huihui': '慧慧',
+                'Kangkang': '康康',
+                'Yaoyao': '瑶瑶',
+                'Xiaoxiao': '晓晓',
+                'Xiaoyi': '小艺',
+                'Yunjian': '云健',
+                'Yunxi': '云希',
+                'Yunxia': '云霞',
+                'Yunyang': '云扬',
+                'HiuGaai': '晓佳',
+                'HiuMaan': '晓文',
+                'WanLung': '云龙',
+                'HsiaoChen': '小陈',
+                'YunJhe': '云哲',
+                'HsiaoYu': '小雨',
+                'Ava': '艾娃',
+                'Andrew': '安德鲁',
+                'Emma': '艾玛',
+                'Brian': '布莱恩',
+                'Ana': '安娜',
+                'AndrewMultilingual': '安德鲁(多语言)',
+                'Aria': '艾瑞亚',
+                'AvaMultilingual': '艾娃(多语言)',
+                'BrianMultilingual': '布莱恩(多语言)',
+                'Christopher': '克里斯托弗',
+                'EmmaMultilingual': '艾玛(多语言)',
+                'Eric': '埃里克',
+                'Guy': '盖伊',
+                'Jenny': '珍妮',
+                'Michelle': '米歇尔',
+                'Roger': '罗杰',
+                'Steffan': '斯蒂芬',
+                'Libby': '莉比',
+                'Maisie': '梅齐',
+                'Ryan': '瑞恩',
+                'Sonia': '索尼娅',
+                'Thomas': '托马斯',
+                'Keita': '启太',
+                'Nanami': '奈奈美',
+                'HyunsuMultilingual': '贤秀(多语言)'
+            };
+            
+            function extractName(fullName) {
+                const match = fullName.match(/^Microsoft\s+(.+?)(?:\s+Online|\s+\(|\s+-)/);
+                if (match) return match[1];
+                const dashMatch = fullName.match(/^Microsoft\s+(.+?)\s+-/);
+                if (dashMatch) return dashMatch[1];
+                return fullName.replace('Microsoft ', '');
+            }
+            
+            const langGroups = {};
+            voices.forEach(voice => {
+                const lang = voice.lang;
+                if (!allowedLangs.includes(lang)) return;
+                if (!langGroups[lang]) {
+                    langGroups[lang] = [];
+                }
+                langGroups[lang].push(voice);
+            });
+
+            Object.keys(langGroups).forEach(lang => {
+                langGroups[lang].forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.name;
+                    const extractedName = extractName(voice.name);
+                    const translatedName = nameTranslations[extractedName] || extractedName;
+                    const langCN = langTranslations[lang] || lang;
+                    option.textContent = `${translatedName} (${langCN})`;
+                    select.appendChild(option);
+                });
+            });
+
+            document.getElementById('tts-voices-count').textContent = `${voices.filter(v => allowedLangs.includes(v.lang)).length} 个语音可用`;
+        }
+
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = loadVoices;
+        }
+        loadVoices();
+        checkLoginStatus();
+
+        document.getElementById('tts-rate').addEventListener('input', (e) => {
+            document.getElementById('tts-rate-value').textContent = e.target.value + 'x';
+        });
+
+        document.getElementById('tts-pitch').addEventListener('input', (e) => {
+            document.getElementById('tts-pitch-value').textContent = e.target.value;
+        });
+
+        function setQuickPhrase(text) {
+            document.getElementById('tts-text').value = text;
+        }
+
+        function playTTS() {
+            const text = document.getElementById('tts-text').value.trim();
+            if (!text) {
+                alert('请输入要合成的文本');
+                return;
+            }
+
+            stopTTS();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            const voiceName = document.getElementById('tts-voice').value;
+            
+            if (voiceName) {
+                const voice = voices.find(v => v.name === voiceName);
+                if (voice) utterance.voice = voice;
+            }
+
+            utterance.rate = parseFloat(document.getElementById('tts-rate').value);
+            utterance.pitch = parseFloat(document.getElementById('tts-pitch').value);
+            utterance.volume = 1;
+
+            utterance.onstart = () => {
+                document.getElementById('tts-status').className = 'status-text playing';
+                document.getElementById('tts-status').textContent = '播放中...';
+                document.getElementById('btn-play').disabled = true;
+                document.getElementById('btn-stop').disabled = false;
+            };
+
+            utterance.onend = () => {
+                resetStatus();
+            };
+
+            utterance.onerror = () => {
+                resetStatus();
+            };
+
+            currentUtterance = utterance;
+            synth.speak(utterance);
+        }
+
+        function stopTTS() {
+            synth.cancel();
+            resetStatus();
+        }
+
+        function resetStatus() {
+            document.getElementById('tts-status').className = 'status-text';
+            document.getElementById('tts-status').textContent = '就绪';
+            document.getElementById('btn-play').disabled = false;
+            document.getElementById('btn-stop').disabled = true;
+            currentUtterance = null;
+        }
+
+        function openAddTaskModal() {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            document.getElementById('task-time').value = timeStr;
+            document.getElementById('task-repeat').checked = false;
+            document.getElementById('task-send-nrl').checked = false;
+            document.getElementById('task-text').value = '';
+            document.getElementById('add-task-modal').classList.add('show');
+        }
+
+        function closeAddTaskModal() {
+            document.getElementById('add-task-modal').classList.remove('show');
+        }
+
+        async function addTask() {
+            const time = document.getElementById('task-time').value;
+            const repeat = document.getElementById('task-repeat').checked;
+            const sendToNRL = document.getElementById('task-send-nrl').checked;
+            const text = document.getElementById('task-text').value.trim();
+
+            if (!time || !text) {
+                alert('请填写完整的任务信息');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tts/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        time: time,
+                        repeat: repeat,
+                        sendToNRL: sendToNRL,
+                        text: text
+                    })
+                });
+
+                const result = await response.json();
+                if (result.code === 20000) {
+                    tasks.push(result.task);
+                    renderTasks();
+                    closeAddTaskModal();
+                } else {
+                    alert(result.message || '添加失败');
+                }
+            } catch (error) {
+                console.error('添加任务失败:', error);
+                alert('添加任务失败: ' + error.message);
+            }
+        }
+
+        async function deleteTask(id) {
+            try {
+                await fetch('/api/tts/task/' + id, { method: 'DELETE' });
+                tasks = tasks.filter(t => t.id !== id);
+                renderTasks();
+            } catch (error) {
+                console.error('删除任务失败:', error);
+            }
+        }
+
+        async function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.enabled = !task.enabled;
+                try {
+                    await fetch('/api/tts/task/' + id, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled: task.enabled })
+                    });
+                    renderTasks();
+                } catch (error) {
+                    console.error('切换任务失败:', error);
+                }
+            }
+        }
+
+        function playTaskText(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                document.getElementById('tts-text').value = task.text;
+                playTTS();
+            }
+        }
+
+        async function sendTaskToNRL(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('tts-status').className = 'status-text playing';
+            document.getElementById('tts-status').textContent = '发送到NRL网络中...';
+
+            try {
+                const response = await fetch('/api/tts/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: task.text,
+                        voice: 'zh-CN-XiaoxiaoNeural',
+                        rate: 1.0,
+                        pitch: 1.0
+                    })
+                });
+
+                const result = await response.json();
+                if (result.code === 20000) {
+                    document.getElementById('tts-status').textContent = '已发送到NRL网络';
+                    setTimeout(() => {
+                        document.getElementById('tts-status').className = 'status-text';
+                        document.getElementById('tts-status').textContent = '就绪';
+                    }, 5000);
+                } else {
+                    throw new Error(result.message || '发送失败');
+                }
+            } catch (error) {
+                console.error('发送到NRL失败:', error);
+                document.getElementById('tts-status').className = 'status-text';
+                document.getElementById('tts-status').textContent = '发送失败: ' + error.message;
+            }
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('task-list');
+            
+            if (tasks.length === 0) {
+                list.innerHTML = '<div class="empty-state">暂无定时任务</div>';
+                return;
+            }
+
+            tasks.sort((a, b) => a.time.localeCompare(b.time));
+
+            list.innerHTML = tasks.map(task => {
+                return `
+                    <div class="task-item ${task.enabled ? '' : 'disabled-card'}">
+                        <div class="task-info">
+                            <div>
+                                <span class="task-time">${task.time}</span>
+                                ${task.repeat ? '<span class="task-repeat">每天</span>' : ''}
+                                ${task.sendToNRL ? '<span class="task-repeat" style="background: rgba(0, 217, 255, 0.2); color: #00d9ff;">📡 网络</span>' : ''}
+                                ${!task.enabled ? '<span class="task-repeat" style="color: #ff8888;">已禁用</span>' : ''}
+                            </div>
+                            <div class="task-text">${task.text}</div>
+                        </div>
+                        <div class="task-actions">
+                            <button class="task-btn play" onclick="playTaskText(${task.id})" title="播放预览">▶</button>
+                            <button class="task-btn" onclick="sendTaskToNRL(${task.id})" title="发送到NRL网络" style="background: rgba(0, 217, 255, 0.2); color: #00d9ff;">📡</button>
+                            <button class="task-btn" onclick="toggleTask(${task.id})" title="${task.enabled ? '禁用' : '启用'}">${task.enabled ? '⏸' : '▶'}</button>
+                            <button class="task-btn delete" onclick="deleteTask(${task.id})" title="删除">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/tts/tasks');
+                const result = await response.json();
+                if (result.code === 20000) {
+                    tasks = result.tasks || [];
+                }
+            } catch (error) {
+                console.error('加载任务失败:', error);
+            }
+            renderTasks();
+        }
+
+        document.getElementById('add-task-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('add-task-modal')) {
+                closeAddTaskModal();
+            }
+        });
+
+        async function sendTTStoNRL() {
+            const text = document.getElementById('tts-text').value.trim();
+            if (!text) {
+                alert('请输入要合成的文本');
+                return;
+            }
+
+            const voiceSelect = document.getElementById('tts-voice');
+            const voice = voiceSelect.value || 'zh-CN-XiaoxiaoNeural';
+            const rate = parseFloat(document.getElementById('tts-rate').value);
+            const pitch = parseFloat(document.getElementById('tts-pitch').value);
+
+            document.getElementById('tts-status').className = 'status-text playing';
+            document.getElementById('tts-status').textContent = '发送到NRL网络中...';
+
+            try {
+                const response = await fetch('/api/tts/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: voice,
+                        rate: rate,
+                        pitch: pitch
+                    })
+                });
+
+                const result = await response.json();
+                if (result.code === 20000) {
+                    document.getElementById('tts-status').className = 'status-text playing';
+                    document.getElementById('tts-status').textContent = '已发送，正在播放...';
+                    setTimeout(() => {
+                        document.getElementById('tts-status').className = 'status-text';
+                        document.getElementById('tts-status').textContent = '就绪';
+                    }, 5000);
+                } else {
+                    throw new Error(result.message || '发送失败');
+                }
+            } catch (error) {
+                console.error('发送失败:', error);
+                document.getElementById('tts-status').className = 'status-text';
+                document.getElementById('tts-status').textContent = '发送失败: ' + error.message;
+            }
+        }
+
+        loadTasks();
+    </script>
+</body>
+
+</html>

@@ -1,30 +1,30 @@
 System:
- # NRLNanny配置
-    Server: "nrlptt.com"  # 服务器地址
-    Port: "60050"  # 服务器端口
-    Callsign: "XX4XX"  # 虚拟设备呼号
-    SSID: 250  # 虚拟设备SSID
-    MusicFilePath: "./music"
-    Volume: 1.0 # 音量
-    DuckScale: 0.1 # 音量降低比例
-    DuckMicPCM: false # 是否降低麦克风音量
-    DuckMusicPCM: true # 是否降低音乐音量
-    RecordMic: false # 是否启用麦克风录音
-    SendOpus: false # true: Opus 16kHz/type 8, false: G.711 A-law 8kHz/type 1
-    EnableMusic: true # 是否启用音乐播放
-    EnableCron: true # 是否启用信标播放
-    EnableTimePlay: true # 是否启用定时点播放
-    MusicPlaying: true # 是否处于播放状态
-    AudioFilePath : "./audio" # WAV/MP3/FLAC/AAC/M4A 定时音频目录
-    RecoderFilePath: "./recoder"  # 录音文件保存路径
-    CronString: "* * * * *"  # 播放周期配置，linux cron格式
-    AudioFile: "./test.wav" # 需要cron调度播放的wav音频文件路径和文件名
-    WebPort : "8080"  # 监听端口
-    EnableControlPage: true # false: 完全关闭控制台登录和控制API；首页始终为Live
-    ControlUsername: "admin" # 控制台登录用户名
-    ControlPassword: "change-this-password" # 请在部署前修改
-    LiveTitle: "BROADCAST TOPIC" # live页面主标题
-    LiveSubtitle: "Live Broadcast" # live页面副标题
-    RadioStations: [] # 网络电台收藏，内嵌支持MP3直链和AAC-LC M3U8/HLS
-    RadioActiveID: "" # 当前选择的网络电台ID
-    RadioPlaying: false # 启动时是否恢复网络电台
+    Server: yz.hamuv.com
+    Port: "60050"
+    Callsign: BI4UMD
+    SSID: 251
+    Volume: 0.78
+    DuckScale: 0.1
+    DuckMicPCM: false
+    DuckMusicPCM: true
+    RecordMic: false
+    SendOpus: false
+    RecordVoice: false
+    EnableMusic: true
+    EnableCron: false
+    EnableTimePlay: false
+    MusicPlaying: false
+    AudioFile: ./test.wav
+    AudioFilePath: ./audio
+    MusicFilePath: ./music
+    RecoderFilePath: ./recoder
+    CronString: '* * * * *'
+    WebPort: "8080"
+    EnableControlPage: true
+    ControlUsername: admin
+    ControlPassword: admin
+    LiveTitle: BROADCAST TOPIC
+    LiveSubtitle: Live Broadcast
+    RadioStations: []
+    RadioActiveID: ""
+    RadioPlaying: false
