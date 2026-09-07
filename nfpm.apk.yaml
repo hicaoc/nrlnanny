@@ -1,0 +1,40 @@
+# nfpm configuration for the .apk (Alpine) package.
+# Env vars ARCH (amd64|arm64), VERSION and RELEASE are set by CI.
+
+name: nrlnanny
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+release: ${RELEASE}
+section: utils
+priority: optional
+maintainer: hicaoc
+description: |
+  NRL 互联服务器保姆程序，用于对房间录音、监听、定时发送信标等功能。
+vendor: NRL Link
+homepage: https://bg6fcs.nrllink.net
+license: proprietary
+depends:
+  - alsa-lib
+  - gcompat
+contents:
+  - src: bin/nrlnanny_linux_${ARCH}
+    dst: /nrlnanny/nrlnanny
+    expand: true
+    file_info:
+      mode: 0755
+  - src: nrlnanny.yaml
+    dst: /nrlnanny/nrlnanny.yaml
+  - src: packaging/nrlnanny.initd
+    dst: /etc/init.d/nrlnanny
+    file_info:
+      mode: 0755
+  - dst: /nrlnanny/conf
+    type: dir
+  - dst: /nrlnanny/data/license
+    type: dir
+  - dst: /nrlnanny/data/log
+    type: dir
+scripts:
+  postinstall: packaging/postinstall-apk.sh
+  preremove: packaging/preremove-apk.sh

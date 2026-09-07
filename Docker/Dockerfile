@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:24.04
 #FROM scratch
 COPY nrlnanny /nrlnanny/
 COPY nrlnanny.yaml /nrlnanny/

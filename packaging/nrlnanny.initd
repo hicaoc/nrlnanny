@@ -1,0 +1,14 @@
+#!/sbin/openrc-run
+
+name="nrlnanny"
+description="NRL nanny server"
+directory="/nrlnanny"
+command="/nrlnanny/nrlnanny"
+command_args="-c /nrlnanny/nrlnanny.yaml"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	need net
+	after firewall
+}
