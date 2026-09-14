@@ -40,3 +40,5 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 )
+
+replace github.com/hajimehoshi/go-mp3 => ./third_party/go-mp3
