@@ -153,12 +153,30 @@ func cubicInterpolate(y0, y1, y2, y3, mu float64) float64 {
 	return a0*mu*mu2 + a1*mu2 + a2*mu + a3
 }
 
-// cubicResample 对单声道 int16 音频进行三次插值重采样，返回 int16
-func cubicResample(src []int16, srcRate, dstRate int, phase *float64) []int16 {
-	if len(src) < 4 || dstRate <= 0 || srcRate <= 0 {
+// cubicResample 对单声道 int16 音频进行三次插值重采样，返回 int16。
+// tail 保存上一个缓冲区的尾部采样：处理完一个缓冲区后 *phase 通常为负，
+// 表示下一个输出采样点落在上一缓冲区末尾，拼接尾部才能保证跨缓冲区
+// 插值正确且下标不越界。
+func cubicResample(src []int16, srcRate, dstRate int, phase *float64, tail *[]int16) []int16 {
+	if dstRate <= 0 || srcRate <= 0 {
 		return nil
 	}
 	ratio := float64(srcRate) / float64(dstRate)
+
+	// 尾部长度需覆盖负相位的最大回退范围（ratio 个采样）以及 y0(idx-1)
+	tailSize := int(math.Ceil(ratio)) + 1
+
+	data := make([]int16, 0, len(*tail)+len(src))
+	data = append(data, *tail...)
+	data = append(data, src...)
+	offset := len(*tail)
+
+	// 保存本缓冲区尾部供下次调用使用
+	if len(data) >= tailSize {
+		*tail = append((*tail)[:0], data[len(data)-tailSize:]...)
+	} else {
+		*tail = append((*tail)[:0], data...)
+	}
 
 	// 计算输出长度，考虑累积相位
 	numOutput := int((float64(len(src)) - *phase) / ratio)
@@ -168,27 +186,31 @@ func cubicResample(src []int16, srcRate, dstRate int, phase *float64) []int16 {
 
 	dst := make([]int16, numOutput)
 	for i := 0; i < numOutput; i++ {
-		pos := *phase + float64(i)*ratio
+		pos := *phase + float64(i)*ratio + float64(offset)
 		idx := int(pos)
 		mu := pos - float64(idx)
+		if idx < 0 {
+			idx = 0
+			mu = 0
+		}
 
 		// 获取四个相邻采样点 (保持边界安全)
 		var y0, y1, y2, y3 float64
 		if idx > 0 {
-			y0 = float64(src[idx-1])
+			y0 = float64(data[idx-1])
 		} else {
-			y0 = float64(src[0])
+			y0 = float64(data[0])
 		}
-		y1 = float64(src[idx])
-		if idx+1 < len(src) {
-			y2 = float64(src[idx+1])
+		y1 = float64(data[idx])
+		if idx+1 < len(data) {
+			y2 = float64(data[idx+1])
 		} else {
-			y2 = float64(src[len(src)-1])
+			y2 = float64(data[len(data)-1])
 		}
-		if idx+2 < len(src) {
-			y3 = float64(src[idx+2])
+		if idx+2 < len(data) {
+			y3 = float64(data[idx+2])
 		} else {
-			y3 = float64(src[len(src)-1])
+			y3 = float64(data[len(data)-1])
 		}
 
 		val := cubicInterpolate(y0, y1, y2, y3, mu)
@@ -201,7 +223,7 @@ func cubicResample(src []int16, srcRate, dstRate int, phase *float64) []int16 {
 		dst[i] = int16(val)
 	}
 
-	// 更新相位
+	// 更新相位（相对下一个缓冲区的起点，通常为负）
 	*phase = (*phase + float64(numOutput)*ratio) - float64(len(src))
 	return dst
 }
@@ -300,6 +322,7 @@ func runCapture() error {
 	var lastIn, lastOut float64
 	lpState := &FilterState{}
 	var resamplePhase float64
+	var resampleTail []int16
 
 	// 输入累积缓冲区 (用于处理足够大的块)
 	var rawAccumBuffer []int16
@@ -366,7 +389,7 @@ func runCapture() error {
 				filtered := lowPassFilter(noDC, lpState, cutoffRatio)
 
 				// 5. 重采样到 16000Hz
-				resampled := cubicResample(filtered, sourceSampleRate, targetSampleRate, &resamplePhase)
+				resampled := cubicResample(filtered, sourceSampleRate, targetSampleRate, &resamplePhase, &resampleTail)
 
 				// 转为 []int 并添加到输出缓冲
 				for _, v := range resampled {
