@@ -6,6 +6,12 @@
 
 name: Go Build
 
+# 同一 ref 的重复触发（如 GitHub 偶发的 tag 推送双触发）只保留最新一次，
+# 避免 release 产物重复上传。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ "main" ]
