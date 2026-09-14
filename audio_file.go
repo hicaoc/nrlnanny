@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -110,7 +111,13 @@ func decodeMP3File(path string) ([]int, int, error) {
 	}
 	data, err := io.ReadAll(decoder)
 	if err != nil {
-		return nil, 0, fmt.Errorf("read MP3 %s: %w", path, err)
+		if len(data) < 4 {
+			return nil, 0, fmt.Errorf("read MP3 %s: %w", path, err)
+		}
+		// go-mp3 遇到个别无法解析的帧会中断读取（如 is_pos was too big），
+		// 保留已解码的部分继续播放，而不是让整个文件播放失败。
+		log.Printf("⚠️ MP3 %s 解码中途出错，仅使用前 %d 秒: %v",
+			path, len(data)/4/decoder.SampleRate(), err)
 	}
 	// go-mp3 always produces signed 16-bit little-endian stereo PCM.
 	frames := len(data) / 4
